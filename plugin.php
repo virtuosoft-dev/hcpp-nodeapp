@@ -10,3 +10,6 @@ global $hcpp;
 
 $hcpp->register_install_script( dirname(__FILE__) . '/install' );
 $hcpp->register_uninstall_script( dirname(__FILE__) . '/uninstall' );
+
+// When a new domain is created, allocate a port for our NodeJS based application
+
