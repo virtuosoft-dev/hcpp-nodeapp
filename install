@@ -1,4 +1,18 @@
-#!/bin/php
-<?php
+#!/bin/bash
 
-file_put_contents( "/tmp/install-test", "install-test\n", FILE_APPEND );
+#
+# Install NodeJS, NVM, PM2, and grunt
+#
+./install_nodejs_stuff
+
+
+#
+# Install templates
+#
+./install_templates
+
+#
+# Update /etc/bash.bashrc
+#
+./install_block /etc/bash.bashrc, ./bash_completion
+
