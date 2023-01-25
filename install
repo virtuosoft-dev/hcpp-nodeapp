@@ -1,18 +1,50 @@
 #!/bin/bash
+export DEBIAN_FRONTEND=noninteractive
 
-#
+############################################ 
 # Install NodeJS, NVM, PM2, and grunt
-#
-./install_nodejs_stuff
+############################################
 
+# First install the latest NodeJS LTS version
+curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+apt-get install -y nodejs
 
-#
+# Install pm2 globally
+npm install -g pm2
+
+# Install node version manager, globally
+curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+mv ~/.nvm /opt/nvm
+chmod -R 755 /opt/nvm
+export NVM_DIR="/opt/nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+export PATH="/opt/nvm:$PATH"
+
+# Install last three NodeJS LTS versions
+nvm install 14.21.1
+nvm install 16.18.1
+nvm install 18.12.1
+nvm alias default 18.12.1
+
+# Install grunt globally
+npm install -g grunt-cli
+
+# Update global bash.bashrc
+if ! grep -Fxq "# begin hestiacp-nodeapp" "/etc/bash.bashrc";then
+
+cat <<EOT >> /etc/bash.bashrc
+# begin hestiacp-nodeapp
+export NVM_DIR="/opt/nvm"
+[ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+export PATH="/opt/nvm:\$PATH"
+# end hestiacp-nodeapp
+EOT
+
+fi
+
+############################################
 # Install templates
-#
-./install_templates
-
-#
-# Update /etc/bash.bashrc
-#
-./add_block /etc/bash.bashrc, ./bash_completion
-
+############################################
+rsync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/

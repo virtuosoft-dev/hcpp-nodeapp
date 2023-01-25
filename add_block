@@ -1,6 +1,0 @@
-#!/bin/php
-<?php
-/**
- * Append the given block to the given file if it isn't already in the file
- */
- 
