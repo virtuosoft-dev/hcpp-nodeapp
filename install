@@ -14,5 +14,5 @@
 #
 # Update /etc/bash.bashrc
 #
-./install_block /etc/bash.bashrc, ./bash_completion
+./add_block /etc/bash.bashrc, ./bash_completion
 
