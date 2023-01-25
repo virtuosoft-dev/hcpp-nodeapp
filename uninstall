@@ -1,0 +1,4 @@
+#!/bin/php
+<?php
+
+unlink("/tmp/install-test");
