@@ -1,4 +1,4 @@
 #!/bin/php
 <?php
 
-touch('/tmp/install-test');
+file_put_contents( "/tmp/install-test", "install-test\n", FILE_APPEND );
