@@ -55,7 +55,7 @@ server {
     }
 
     location @fallback {
-        proxy_pass     http://127.0.0.1:$nodered_port;
+        proxy_pass     http://127.0.0.1:$nodeapp_port;
     }
 
     location ~ /\.ht    {return 404;}

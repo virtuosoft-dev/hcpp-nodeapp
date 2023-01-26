@@ -13,7 +13,7 @@ server {
     client_max_body_size 512m;
     
     location / {
-        proxy_pass http://127.0.0.1:$nodered_port;        
+        proxy_pass http://127.0.0.1:$nodeapp_port;        
         location ~* ^.+\.(%proxy_extensions%)$ {
             root           %docroot%;
             access_log     /var/log/%web_system%/domains/%domain%.log combined;
