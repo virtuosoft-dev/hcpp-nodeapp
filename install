@@ -36,11 +36,13 @@ nvm alias default 18.12.1
 # Install grunt globally
 npm install -g grunt-cli
 
-
 ############################################
 # Install templates
 ############################################
-rsync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/
+cp ./nginx/NodeApp.sh /usr/local/hestia/data/templates/web/nginx/NodeApp.sh
+chmod 700 /usr/local/hestia/data/templates/web/nginx/NodeApp.sh
+cp ./nginx/NodeApp.tpl /usr/local/hestia/data/templates/web/nginx/NodeApp.tpl
+cp ./nginx/NodeApp.stpl /usr/local/hestia/data/templates/web/nginx/NodeApp.stpl
 
 ############################################
 # Update global bash.bashrc
