@@ -1,5 +1,5 @@
 # hestiacp-nodeapp
-A plugin for Hestia Control Panel (via hestiacp-pluginable) that enables hosting generic NodeJS based applications with control via pm2. With this plugin installed, user accounts can host their own NodeJS applications. A simple [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html) is included as the default NodeApp application.
+A plugin for Hestia Control Panel (via [hestiacp-pluginable](https://github.com/steveorevo/hestiacp-pluginable)) that enables hosting generic NodeJS based applications with control via pm2. With this plugin installed, user accounts can host their own NodeJS applications. A simple [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html) is included as the default NodeApp application.
 
 > :warning: !!! Note: this repo is in progress; when completed, a release will appear in the release tab.
 
