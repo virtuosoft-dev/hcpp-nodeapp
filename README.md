@@ -14,7 +14,7 @@ sudo -s
 cd /tmp
 wget https://github.com/Steveorevo/hestiacp-nodeapp/archive/refs/heads/main.zip
 unzip main.zip
-mv hestiacp-nodeapp /usr/local/hestia/plugins/nodeapp
+mv hestiacp-nodeapp-main /usr/local/hestia/plugins/nodeapp
 rm main.zip
 ```
 
