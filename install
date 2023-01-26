@@ -39,14 +39,13 @@ npm install -g grunt-cli
 ############################################
 # Install templates
 ############################################
-cp ./nginx/NodeApp.sh /usr/local/hestia/data/templates/web/nginx/NodeApp.sh
-chmod 700 /usr/local/hestia/data/templates/web/nginx/NodeApp.sh
-cp ./nginx/NodeApp.tpl /usr/local/hestia/data/templates/web/nginx/NodeApp.tpl
-cp ./nginx/NodeApp.stpl /usr/local/hestia/data/templates/web/nginx/NodeApp.stpl
+
+rync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/
 
 ############################################
 # Update global bash.bashrc
 ############################################
+
 if ! grep -Fxq "# begin hestiacp-nodeapp" "/etc/bash.bashrc";then
 
 cat <<EOT >> /etc/bash.bashrc
