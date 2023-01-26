@@ -1,6 +1,12 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 
+if [[ -d "/opt/nvm" && -f "/usr/local/hestia/data/templates/web/nginx/NodeApp.sh" ]]
+then
+    echo "NodeApp appears to already be installed"
+    exit
+fi
+
 ############################################ 
 # Install NodeJS, NVM, PM2, and grunt
 ############################################
