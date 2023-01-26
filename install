@@ -40,7 +40,7 @@ npm install -g grunt-cli
 # Install templates
 ############################################
 
-rync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/
+rsync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/
 
 ############################################
 # Update global bash.bashrc
