@@ -28,7 +28,7 @@ cd /usr/local/hestia/plugins/nodeapp
 
 &nbsp;
 ## Using NodaApp to Host a NodeJS Website
-The Hestia user account to be associated with a new web domain must have bash SSH access. Login as the admin user in Hestia to grant bash SSH Access. Simply edit the Hestia user account; 1) Click the *'Advanced Options'* button after *'Edit User'* and 2) Select `bash` from the combobox under *'SSH Access'*, and save the changes (see image below).
+The Hestia user account to be associated with a new web domain must have bash SSH access. This is to allow Hestia to switch to their user account to start and stop the NodeJS application. Login as the admin user in Hestia to grant bash SSH Access. Simply edit the Hestia user account; 1) Click the *'Advanced Options'* button after *'Edit User'* and 2) Select `bash` from the combobox under *'SSH Access'*, and save the changes (see image below).
 
 <br><img src='enable-bash.jpg' width='45%'><br>
 
