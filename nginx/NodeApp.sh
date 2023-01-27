@@ -32,20 +32,17 @@ if (!file_exists( $docroot )) {
     mkdir( $docroot, 0750, true);
     chown( $docroot, $user );
     chgrp( $docroot, $user );
-}
 
-// Copy over fresh nodeapp config file
-if (!file_exists( $docroot . '/app.config.js' )) {
-    copy( '/usr/local/hestia/plugins/nodeapp/nodeapp/app.config.js', $docroot . '/app.config.js' );
-    chown( $docroot . '/app.config.js', $user );
-    chgrp( $docroot . '/app.config.js', $user );
-}
-
-// Copy over fresh Hello World! Express app
-if (!file_exists( $docroot . '/app.js' )) {
-    copy( '/usr/local/hestia/plugins/nodeapp/nodeapp/app.js', $docroot . '/app.js' );
-    chown( $docroot . '/app.js', $user );
-    chgrp( $docroot . '/app.js', $user );
+    // Copy over fresh nodeapp
+    $src = new RecursiveDirectoryIterator('/usr/local/hestia/plugins/nodeapp/nodeapp');
+    $it  = new RecursiveIteratorIterator($src);
+    foreach ($it as $file) {
+        if ($file->isFile()) {
+            copy($file->getPathname(), $docroot . '/' . $file->getFilename());
+            chown($docroot . '/' . $file->getFilename(), $user);
+            chgrp($docroot . '/' . $file->getFilename(), $user);
+        }
+    }
 }
 
 // Restart the nodeapp service for the domain
