@@ -28,18 +28,14 @@ cd /usr/local/hestia/plugins/nodeapp
 
 &nbsp;
 ## Using NodaApp to Host a NodeJS Website
-The Hestia user account to be associated with a new web domain must have bash SSH access. This is to allow Hestia to switch to their user account to start and stop the NodeJS application. Login as the admin user in Hestia to grant bash SSH Access. Simply edit the Hestia user account; 1) Click the *'Advanced Options'* button after *'Edit User'* and 2) Select `bash` from the combobox under *'SSH Access'*, and save the changes (see image below).
+The Hestia user account to be associated with a new web domain must have bash SSH access. This is to allow Hestia to switch to their user account to start and stop the NodeJS application. Login as the admin user in Hestia to grant bash SSH Access. Simply edit the Hestia user account; 1) Click the *'Advanced Options'* button after ***'Edit User'*** and 2) Select `bash` from the combobox under ***'SSH Access'***, and save the changes (see image below).
 
-<br><img src='enable-bash.jpg' width='50%'><br>
+<br><img src='images/enable-bash.jpg' width='50%'><br>
 
-The basic default NodeJS application is the [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html). To create it, simply select the user account (that has bash SSH access enabled), and add a web domain. Edit the web domain and select the 
+The basic default NodeJS application is the [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html). To use it, simply select the user account (that has bash SSH access enabled), and add a web domain. Edit the web domain; 1) Click the ***'Advanced Options'*** and 2) Select `NodeApp` in the ***'Proxy Template'*** combobox (if the option is missing, wait for installation to complete or attempt manual installation instructions above).
 
-This may take a while, but eventually you will have a new Nginx **"Proxy Template"** for NodeApp. 
+<br><img src='images/nodeapp.jpg' width='50%'><br>
 
+After saving your changes, you should be able to visit the web domain and see the `Hello World!` text on a white background. The basic NodeJS Express application lives in the `app.js` file which is located in the nodeapp folder. I.e. for the user "johnsmith" on "example.com", the filename path for the application would be at `/home/johnsmith/web/example.com/nodeapp/app.js`. Hestia control panel will automatically stop the NodeJS application when you select a different proxy template for the domain and restart it when you select NodeJS again.
 
-Add a new web domain and visit the **Advanced Options** section and look for the NodeApp option under You can also install manaully by invoking the installer as a root user:
-
-
-
-
-
+With the HestiaCP-NodeApp plugin, you do not need to configure ports, create Ngnix templates, or customize your application. The plugin will automatically allocate ports for each user account and web domain. It will furnish a unique NodeJS instance using an advanced process manager with watch dog, as well as configure Nginx to securely display the app on your designed web domain. Your web development stack will be able to leverage the latest in NodeJS technology, use websockets, and run multiple users and web domains from the Hestia control panel.
