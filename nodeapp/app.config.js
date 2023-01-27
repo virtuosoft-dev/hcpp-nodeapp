@@ -1,6 +1,12 @@
 module.exports = {
     apps: [{
-        name: "app",
+        name: (function() {
+            /**
+             * Name the app based on the domain name from the current directory path.
+             */
+            let domain = __dirname.split('/')[4];
+            return 'nodeapp-' + domain;
+        })(),
         script: "./app.js",
         interpreter: (function() {
             /**
