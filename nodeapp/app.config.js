@@ -6,7 +6,7 @@ module.exports = {
             /**
              * Specify the node interpreter to use.
              * 
-             * Read the .nvmrc file in the current directory and use the node version specified in it,
+             * Read the .nvmrc file and find a suitable node version specified from it,
              * or default to the latest node version.
              */
 
@@ -16,12 +16,13 @@ module.exports = {
             if (fs.existsSync(file)) {
                 ver = fs.readFileSync(file, {encoding:'utf8', flag:'r'}).trim();
             }
-            ver = execSync("nvm which " . ver).toString();
+            const { execSync } = require('child_process');
+            ver = execSync('/bin/bash -c "source /opt/nvm/nvm.sh && nvm which ' + ver + '"').toString().trim();
             if (!fs.existsSync(ver)) {
                 console.error(ver);
                 process.exit(1);
             }else{
-                return ver.trim();
+                return ver;
             }
         })(),       
         args: (function() {
