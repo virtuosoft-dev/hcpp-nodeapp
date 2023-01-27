@@ -43,6 +43,9 @@ if (!file_exists( $docroot )) {
             chgrp($docroot . '/' . $file->getFilename(), $user);
         }
     }
+
+    // Install the app.js dependencies
+    $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && npm install"';
 }
 
 // Restart the nodeapp service for the domain
