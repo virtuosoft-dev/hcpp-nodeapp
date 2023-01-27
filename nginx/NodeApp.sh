@@ -50,5 +50,5 @@ if (!file_exists( $docroot )) {
 }
 
 // Restart the nodeapp service for the domain
-$cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js && pm2 start app.config.js';
+$cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js && pm2 start app.config.js"';
 shell_exec($cmd);
