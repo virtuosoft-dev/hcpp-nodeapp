@@ -46,6 +46,7 @@ if (!file_exists( $docroot )) {
 
     // Install the app.js dependencies
     $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && npm install"';
+    shell_exec($cmd);
 }
 
 // Restart the nodeapp service for the domain
