@@ -22,7 +22,7 @@ $hcpp->add_action( 'pre_add_web_domain_backend', function( $args ) {
     return $args;
 });
 
-// Shutdown the NodeJS application and delete the ports file when the domain is deleted
+// Shutdown the NodeJS application when the domain is deleted
 $hcpp->add_action( 'pre_delete_web_domain_backend', function( $args ) {
     global $hcpp;
     $user = $args[0];
@@ -31,8 +31,5 @@ $hcpp->add_action( 'pre_delete_web_domain_backend', function( $args ) {
     $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js"';
     shell_exec( $cmd );
     $hcpp->log( "Shut down NodeJS application nodeapp-$domain" );
-    if ( file_exists( "/opt/hcpp/ports/$user/$domain.ports" ) ) {
-        unlink( "/opt/hcpp/ports/$user/$domain.ports" );
-    }
     return $args;
 });
