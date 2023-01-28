@@ -25,10 +25,10 @@ export NVM_DIR="/opt/nvm"
 export PATH="/opt/nvm:$PATH"
 
 # Install last three NodeJS LTS versions
-nvm install 14.21.1
-nvm install 16.18.1
-nvm install 18.12.1
-nvm alias default 18.12.1
+nvm install 14.21.2
+nvm install 16.19.0
+nvm install 18.13.0
+nvm alias default 18.13.0
 
 # Install grunt globally
 npm install -g grunt-cli
