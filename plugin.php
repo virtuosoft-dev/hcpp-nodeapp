@@ -29,7 +29,11 @@ $hcpp->add_action( 'pre_delete_web_domain_backend', function( $args ) {
     $domain = $args[1];
     $docroot = "/home/$user/web/$domain/nodeapp";
     $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js"';
+    $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $cmd );
     shell_exec( $cmd );
     $hcpp->log( "Shut down NodeJS application nodeapp-$domain" );
     return $args;
 });
+
+// TODO: switching to a different template should stop the NodeJS application
+// and throw a pluginable action

@@ -44,3 +44,13 @@ The basic default NodeJS application is the [Hello World! ExpressJS application]
 After saving your changes, you should be able to visit the web domain and see the `Hello World!` text on a white background. The basic NodeJS Express application lives in the `app.js` file which is located in the nodeapp folder. I.e. for the user "johnsmith" on "example.com", the filename path for the application would be at `/home/johnsmith/web/example.com/nodeapp/app.js`. Hestia control panel will automatically stop the NodeJS application when you select a different proxy template for the domain and restart it when you select NodeJS again. Likewise if you delete the domain, Hestia will free the allocated port from the pool of ports on the system and shutdown the NodeJS app prior to deleting the web domain.
 
 With the HestiaCP-NodeApp plugin, you do not need to configure ports, create Ngnix templates, or customize any templates. The plugin will automatically allocate ports for each user account and web domain (as well as clean them up when they are deleted). It will furnish a unique NodeJS instance using an advanced process manager with watch dog, as well as configure Nginx to securely display the app on your designated web domain. Your web development stack will be able to leverage the latest in NodeJS technology, use websockets, and run multiple users and web domains all from the Hestia control panel.
+
+## Extending HestiaCP-NodeApp via Pluginable Actions
+The following [hestiacp-pluginable](https://github.com/steveorevo/hestiacp-pluginable) actions are invoked when using
+the NodeApp. Developers can hook and implement their own NodeApp using these actions:
+
+* copy_nodeapp_files
+* install_node_app_dependencies
+* pre_nodeapp_template
+* restart_nodeapp_services
+* shutdown_nodeapp_services
