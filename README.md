@@ -52,5 +52,5 @@ the NodeApp. Developers can hook and implement their own NodeApp using these act
 * copy_nodeapp_files
 * install_node_app_dependencies
 * pre_nodeapp_template
-* restart_nodeapp_services
+* start_nodeapp_services
 * shutdown_nodeapp_services
