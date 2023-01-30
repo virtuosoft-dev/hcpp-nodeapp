@@ -35,5 +35,19 @@ $hcpp->add_action( 'pre_delete_web_domain_backend', function( $args ) {
     return $args;
 });
 
-// TODO: switching to a different template should stop the NodeJS application
-// and throw a pluginable action
+// Shutdown application when the domain proxy template is changed
+$hcpp->add_action( 'priv_change_web_domain_proxy_tpl', function( $args ) {
+    global $hcpp;
+    $user = $args[0];
+    $domain = $args[1];
+    $proxy = $args[2];
+    $docroot = "/home/$user/web/$domain/nodeapp";
+
+    if ( $proxy != 'NodeApp' ) {    
+        $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js"';
+        $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $cmd );
+        shell_exec( $cmd );
+        $hcpp->log( "Shut down NodeJS application nodeapp-$domain" );
+    }
+    return $args;
+});
