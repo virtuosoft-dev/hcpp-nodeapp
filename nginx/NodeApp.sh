@@ -58,7 +58,7 @@ if ( !file_exists( $docroot ) ) {
     shell_exec( $cmd );
 }
 
-// Restart the nodeapp service for the domain
-$cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js && pm2 start app.config.js"';
-$cmd = $hcpp->do_action( 'restart_nodeapp_services', $cmd );
+// Start the nodeapp service for the domain
+$cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 start app.config.js"';
+$cmd = $hcpp->do_action( 'start_nodeapp_services', $cmd );
 shell_exec( $cmd );

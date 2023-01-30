@@ -5,7 +5,7 @@ module.exports = {
              * Name the app based on the domain name from the current directory path.
              */
             let domain = __dirname.split('/')[4];
-            return 'app.config.js on ' + domain;
+            return 'app-' + domain;
         })(),
         script: "./app.js",
         interpreter: (function() {
