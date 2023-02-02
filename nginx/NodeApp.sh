@@ -20,6 +20,10 @@ if (count( $argv ) < 6) {
     $ip = $argv[2];
     $home = $argv[3];
     $docroot = $argv[4];
+
+    // Ensure port is allocated
+    $name = 'nodeapp_port';
+    $port = $hcpp->allocate_port( $name, $user, $domain );
 }
 
 // Utility string function
