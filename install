@@ -58,3 +58,6 @@ export PATH="/opt/nvm:\$PATH"
 EOT
 
 fi
+
+# Notify installation has finished
+/usr/local/hestia/bin/v-add-user-notification admin NodeApp "&#11088; NodeApp plugin has finished installing."
