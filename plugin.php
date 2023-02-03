@@ -45,7 +45,7 @@ $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', function( $args ) {
     if ( $proxy != 'NodeApp' ) {    
         $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js"';
         $args[3] = $cmd;
-        $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $cmd )[3];
+        $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $args )[3];
         shell_exec( $cmd );
     }
     return $args;
