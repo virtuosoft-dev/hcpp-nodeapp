@@ -29,7 +29,8 @@ $hcpp->add_action( 'pre_delete_web_domain_backend', function( $args ) {
     $domain = $args[1];
     $docroot = "/home/$user/web/$domain/nodeapp";
     $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js"';
-    $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $cmd );
+    $args[2] = $cmd;
+    $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $args )[2];
     shell_exec( $cmd );
     return $args;
 });
@@ -43,7 +44,8 @@ $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', function( $args ) {
     $docroot = "/home/$user/web/$domain/nodeapp";
     if ( $proxy != 'NodeApp' ) {    
         $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 delete app.config.js"';
-        $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $cmd );
+        $args[3] = $cmd;
+        $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $cmd )[3];
         shell_exec( $cmd );
     }
     return $args;

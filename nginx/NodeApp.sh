@@ -58,11 +58,13 @@ if ( !file_exists( $docroot ) ) {
 
     // Install the app.js dependencies
     $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && npm install"';
-    $cmd = $hcpp->do_action( 'install_nodeapp_dependencies', $cmd );
+    $argv[5] = $cmd;
+    $cmd = $hcpp->do_action( 'install_nodeapp_dependencies', $argv )[5];
     shell_exec( $cmd );
 }
 
 // Start the nodeapp service for the domain
 $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 start app.config.js"';
-$cmd = $hcpp->do_action( 'start_nodeapp_services', $cmd );
+$argv[5] = $cmd;
+$cmd = $hcpp->do_action( 'start_nodeapp_services', $argv )[5];
 shell_exec( $cmd );
