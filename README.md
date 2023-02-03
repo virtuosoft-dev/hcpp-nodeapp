@@ -49,8 +49,8 @@ With the HestiaCP-NodeApp plugin, you do not need to configure ports, create Ngn
 The following [hestiacp-pluginable](https://github.com/steveorevo/hestiacp-pluginable) actions are invoked when using
 the NodeApp. Developers can hook and implement their own NodeApp using these actions:
 
-* copy_nodeapp_files
-* install_node_app_dependencies
-* pre_nodeapp_template
-* start_nodeapp_services
-* shutdown_nodeapp_services
+* **copy_nodeapp_files** - *occurs after include Hello world ExpressJS files are copied.*
+* **install_node_app_dependencies** - *occurs before `"npm install"`, allows filtering the command.*
+* **pre_nodeapp_template** - *occurs before the NodeApp Proxy Template is selected.*
+* **start_nodeapp_services** - *occurs before `"pm2 start app.config.js"`, allows filtering the command.*
+* **shutdown_nodeapp_services** - *occurs before `"pm2 delete app.config.js"`, allows filtering the command.*
