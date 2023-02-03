@@ -23,7 +23,7 @@ mv hestiacp-nodeapp-main /usr/local/hestia/plugins/nodeapp
 rm main.zip
 ```
 
-Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. This may take awhile before the options appear in the Hestia. You can force manual installation via root level SSH:
+Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. This may take awhile before the options appear in Hestia. You can force manual installation via root level SSH:
 
 ```
 sudo -s
