@@ -79,7 +79,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 ];
 
                 // Run the command to start all the apps
-                $cmd = $hcpp->do_action( 'startup_nodeapp_services', $args )->cmd;
+                $args = $hcpp->do_action( 'startup_nodeapp_services', $args );
+                $cmd = $args['cmd'];
                 shell_exec( $cmd );
             }
         }
@@ -116,7 +117,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 ];
 
                 // Run the command to shutdown all the apps
-                $cmd = $hcpp->do_action( 'shutdown_nodeapp_services', $args )->cmd;
+                $args = $hcpp->do_action( 'shutdown_nodeapp_services', $args );
+                $cmd = $args['cmd'];
                 shell_exec( $cmd );
             }
         }

@@ -1,8 +1,9 @@
 #!/bin/php
-#
-# HestiaCP NodeApp template installer
-#
 <?php
+//
+// HestiaCP NodeApp template installer
+//
+
 // Gather the arguments
 if (count( $argv ) < 6) {
     echo "Usage: <user> <domain> <ip> <home> <docroot>\n";
@@ -71,7 +72,8 @@ if ( !file_exists( $nodeapp_folder ) ) {
         'docroot' => $docroot,
         'cmd' => $cmd
     ];
-    $cmd = $hcpp->do_action( 'install_nodeapp_dependencies', $args )->cmd;
+    $args = $hcpp->do_action( 'install_nodeapp_dependencies', $args );
+    $cmd = $args['cmd'];
     shell_exec( $cmd );
 }
 
