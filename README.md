@@ -12,10 +12,14 @@ A plugin for Hestia Control Panel (via [hestiacp-pluginable](https://github.com/
 ## Installation
 HestiaCP-NodeApp requires an Ubuntu based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/steveorevo/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Switch to a root user and simply download and unzip this project and move the folder to the `/usr/local/hestia/plugins` folder. It should appear as a subfolder with the name `nodeapp`, i.e. `/usr/local/hestia/plugins/nodeapp`.
 
-Note: It is important that the plugin folder name is `nodeapp`.
-
+First, switch to root user:
 ```
 sudo -s
+```
+
+You can just download the archive, unpack, and move it into place:
+
+```
 cd /tmp
 wget https://github.com/Steveorevo/hestiacp-nodeapp/archive/refs/heads/main.zip
 unzip main.zip
@@ -23,10 +27,19 @@ mv hestiacp-nodeapp-main /usr/local/hestia/plugins/nodeapp
 rm main.zip
 ```
 
-Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. A notification will appear under the admin user account indicating *"NodeApp plugin has finished installing"* when complete. This may take awhile before the options appear in Hestia. You can force manual installation via root level SSH:
+Note: It is important that the plugin folder name is `nodeapp`.
+
+Alternatively (instead of the commands above), you can just clone the repo:
 
 ```
-sudo -s
+cd /usr/local/hestia/plugins
+git clone https://github.com/steveorevo/hestiacp-nodeapp nodeapp
+```
+
+
+Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. A notification will appear under the admin user account indicating *"NodeApp plugin has finished installing"* when complete. This may take awhile before the options appear in Hestia. You can force manual installation via:
+
+```
 cd /usr/local/hestia/plugins/nodeapp
 ./install
 ```
