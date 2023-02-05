@@ -12,12 +12,6 @@
 
 if ( ! class_exists( 'NodeApp') ) {
     class NodeApp {
-        public function __construct() {
-            global $hcpp;
-            $hcpp->add_action( 'pre_add_web_domain_backend', array( $this, 'allocate_port' ) );
-            $hcpp->add_action( 'pre_delete_web_domain_backend', array( $this, 'shutdown_nodeapp_services' ) );
-            $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', array( $this, 'shutdown_nodeapp_services' ) );
-        }
 
         /**
          * Scan the nodeapp folder for .config.js files and allocate a port for each
