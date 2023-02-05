@@ -52,5 +52,5 @@ the NodeApp. Developers can hook and implement their own NodeApp using these act
 * **copy_nodeapp_files** - *occurs after include Hello world ExpressJS files are copied.*
 * **install_node_app_dependencies** - *occurs before `"npm install"`, allows filtering the command.*
 * **pre_nodeapp_template** - *occurs before the NodeApp Proxy Template is selected.*
-* **start_nodeapp_services** - *occurs before `"pm2 start app.config.js"`, allows filtering the command.*
+* **startup_nodeapp_services** - *occurs before `"pm2 start app.config.js"`, allows filtering the command.*
 * **shutdown_nodeapp_services** - *occurs before `"pm2 delete app.config.js"`, allows filtering the command.*

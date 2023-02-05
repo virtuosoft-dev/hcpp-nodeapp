@@ -36,35 +36,43 @@ function replaceLast( $haystack, $needle, $replace ) {
     }
     return $newstring;
 }
-$docroot = replaceLast( $docroot, '/public_html', '/nodeapp' );
+$nodeapp_folder = replaceLast( $docroot, '/public_html', '/nodeapp' );
 
 // Create the NodeApp directory
-if ( !file_exists( $docroot ) ) {
-    mkdir( $docroot, 0750, true );
-    chown( $docroot, $user );
-    chgrp( $docroot, $user );
+if ( !file_exists( $nodeapp_folder ) ) {
+    mkdir( $nodeapp_folder, 0750, true );
+    chown( $nodeapp_folder, $user );
+    chgrp( $nodeapp_folder, $user );
 
     // Copy over fresh nodeapp
     $src = new RecursiveDirectoryIterator('/usr/local/hestia/plugins/nodeapp/nodeapp');
     $it  = new RecursiveIteratorIterator($src);
     foreach ( $it as $file ) {
         if ( $file->isFile()) {
-            copy( $file->getPathname(), $docroot . '/' . $file->getFilename() );
-            chown( $docroot . '/' . $file->getFilename(), $user );
-            chgrp( $docroot . '/' . $file->getFilename(), $user );
+            copy( $file->getPathname(), $nodeapp_folder . '/' . $file->getFilename() );
+            chown( $nodeapp_folder . '/' . $file->getFilename(), $user );
+            chgrp( $nodeapp_folder . '/' . $file->getFilename(), $user );
         }
     }
     $argv = $hcpp->do_action( 'copy_nodeapp_files', $argv );
 
     // Install the app.js dependencies
-    $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && npm install"';
+    $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh && npm install"';
     $argv[5] = $cmd;
-    $cmd = $hcpp->do_action( 'install_nodeapp_dependencies', $argv )[5];
+    $args = [
+        'user' => $user,
+        'domain' => $domain,
+        'ip' => $ip,
+        'home' => $home,
+        'docroot' => $docroot,
+        'cmd' => $cmd
+    ];
+    $cmd = $hcpp->do_action( 'install_nodeapp_dependencies', $args )->cmd;
     shell_exec( $cmd );
 }
 
 // Start the nodeapp service for the domain
-$cmd = 'runuser -l ' . $user . ' -c "cd \"' . $docroot . '\" && source /opt/nvm/nvm.sh && pm2 start app.config.js"';
-$argv[5] = $cmd;
-$cmd = $hcpp->do_action( 'start_nodeapp_services', $argv )[5];
-shell_exec( $cmd );
+//global $hcpp;
+//require_once( '/usr/local/hesita/plugins/nodeapp/nodeapp.php' );
+//$hcpp->nodeapp->allocate_ports( $nodeapp_folder );
+//$hcpp->nodeapp->startup_nodeapps( $nodeapp_folder );

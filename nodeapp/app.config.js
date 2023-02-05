@@ -38,15 +38,24 @@ module.exports = {
              * The port number is read from a file in /opt/hcpp/ports/%username%/%domain%.ports,
              * we know the username and domain name from the current directory path.
              */
-
+            let port = 0;
             let file = __dirname;
             file = file.replace('/home/', '/opt/hcpp/ports/').replace('/web/', '/').replace('/nodeapp', '.ports');
             const fs = require('fs');
-            let port = fs.readFileSync(file, {encoding:'utf8', flag:'r'});
+            let ports = fs.readFileSync(file, {encoding:'utf8', flag:'r'});
+            ports = ports.split(/\r?\n/);
+            for( let i = 0; i < ports.length; i++) {
+                if (ports[i].indexOf('app_port') > -1) {
+                    port = ports[i];
+                    break;
+                }
+            }
+
+            // Find the port number assigned to app_port
             port = parseInt(port.trim().split(' ').pop());
             return "-p " + port;
         })(),
-        watch: [".restart"],
+        watch: [".restart/app"],
         ignore_watch: [],
         watch_delay: 5000,
         restart_delay: 5000
