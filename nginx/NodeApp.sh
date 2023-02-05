@@ -52,6 +52,10 @@ if ( !file_exists( $nodeapp_folder ) ) {
             copy( $file->getPathname(), $nodeapp_folder . '/' . $file->getFilename() );
             chown( $nodeapp_folder . '/' . $file->getFilename(), $user );
             chgrp( $nodeapp_folder . '/' . $file->getFilename(), $user );
+        }else{
+            mkdir( $nodeapp_folder . '/' . $file->getFilename(), 0750, true );
+            chown( $nodeapp_folder . '/' . $file->getFilename(), $user );
+            chgrp( $nodeapp_folder . '/' . $file->getFilename(), $user );
         }
     }
     $argv = $hcpp->do_action( 'copy_nodeapp_files', $argv );
