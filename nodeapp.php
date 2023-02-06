@@ -14,6 +14,53 @@ if ( ! class_exists( 'NodeApp') ) {
     class NodeApp {
 
         /**
+         * Constructor, listen for the priv_change_web_domain_proxy_tpl event
+         */
+        public function __construct() {
+            global $hcpp;
+            $hcpp->nodeapp = $this;
+            $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', [ $this, 'priv_change_web_domain_proxy_tpl' ] );
+        }
+
+        /**
+         * On proxy template change, copy basic nodeapp, allocate ports, and start apps
+         */
+        public function priv_change_web_domain_proxy_tpl( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $proxy = $args[2];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            if ( $proxy != 'NodeApp' ) {
+                if ( is_dir( $nodeapp_folder) ) {
+                    $hcpp->nodeapp->shutdown_apps( $nodeapp_folder );
+                }
+            }else{
+
+                // Copy initial nodeapp folder
+                if ( !is_dir( $nodeapp_folder) ) {
+                    $this->copy_folder( '/usr/local/hestia/plugins/nodeapp/nodeapp', $nodeapp_folder, $user );
+                    $args = [
+                        'user' => $user,
+                        'domain' => $domain,
+                        'proxy' => $proxy,
+                        'nodeapp_folder' => $nodeapp_folder
+                    ];
+                    $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
+                    $nodeapp_folder = $args['nodeapp_folder'];
+
+                    // Install dependencies
+                    $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh && npm install"';
+                    $args['cmd'] = $cmd;
+                    $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
+                    shell_exec( $args['cmd'] );
+                }
+                $this->allocate_ports( $nodeapp_folder );
+                $this->startup_apps( $nodeapp_folder );
+            }
+        }
+
+        /**
          * Scan the nodeapp folder for .config.js files and allocate a port for each
          */
         public function allocate_ports( $nodeapp_folder ) {
@@ -46,7 +93,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 'domain' => $domain,
                 'nodeapp_folder' => $nodeapp_folder
             ];
-            $hcpp->do_action( 'nodeapp_allocate_ports', $args );
+            $hcpp->do_action( 'nodeapp_ports_allocated', $args );
         }
 
         /**
@@ -79,7 +126,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 ];
 
                 // Run the command to start all the apps
-                $args = $hcpp->do_action( 'startup_nodeapp_services', $args );
+                $args = $hcpp->do_action( 'nodeapp_startup_services', $args );
                 $cmd = $args['cmd'];
                 shell_exec( $cmd );
             }
@@ -117,13 +164,34 @@ if ( ! class_exists( 'NodeApp') ) {
                 ];
 
                 // Run the command to shutdown all the apps
-                $args = $hcpp->do_action( 'shutdown_nodeapp_services', $args );
+                $args = $hcpp->do_action( 'nodeapp_shutdown_services', $args );
                 $cmd = $args['cmd'];
                 shell_exec( $cmd );
             }
         }
+
+        public function copy_folder( $src, $dst, $user ) {
+            if ( is_dir( $src ) ) {
+              if ( !is_dir( $dst ) ) {
+                mkdir( $dst );
+                chmod( $dst, 0750);
+                chown( $dst, $user );
+                chgrp( $dst, $user );
+              }
+          
+              $files = scandir( $src );
+              foreach ( $files as $file ) {
+                if ( $file != "." && $file != ".." ) {
+                  $this->copy_folder( "$src/$file", "$dst/$file", $user );
+                }
+              }
+            } elseif ( file_exists( $src ) ) {
+              copy( $src, $dst );
+              chmod( $dst, 0640);
+              chown( $dst, $user );
+              chgrp( $dst, $user );
+            }
+          }
     }
-    
-    global $hcpp;
-    $hcpp->nodeapp = new NodeApp();
+    new NodeApp();
 }
