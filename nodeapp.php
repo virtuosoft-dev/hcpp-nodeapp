@@ -20,6 +20,7 @@ if ( ! class_exists( 'NodeApp') ) {
             global $hcpp;
             $hcpp->nodeapp = $this;
             $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', [ $this, 'priv_change_web_domain_proxy_tpl' ] );
+            $hcpp->add_action( 'pre_delete_web_domain_backend', [ $this, 'pre_delete_web_domain_backend' ] );
         }
 
         /**
@@ -58,6 +59,17 @@ if ( ! class_exists( 'NodeApp') ) {
                 $this->allocate_ports( $nodeapp_folder );
                 $this->startup_apps( $nodeapp_folder );
             }
+        }
+
+        /**
+         * On domain delete, shutdown apps
+         */
+        public function pre_delete_web_domain_backend( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            $this->shutdown_apps( $nodeapp_folder );
         }
 
         /**
