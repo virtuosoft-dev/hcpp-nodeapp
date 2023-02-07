@@ -1,7 +1,7 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 
-if [[ -d "/opt/nvm" && -f "/usr/local/hestia/data/templates/web/nginx/NodeApp.sh" ]]
+if [[ -d "/opt/nvm" && -f "/usr/local/hestia/data/templates/web/nginx/NodeApp.stpl" ]]
 then
     echo "NodeApp appears to already be installed"
     exit
