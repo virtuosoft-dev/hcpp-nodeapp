@@ -37,7 +37,11 @@ git clone https://github.com/steveorevo/hestiacp-nodeapp nodeapp
 ```
 
 
-Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. A notification will appear under the admin user account indicating *"NodeApp plugin has finished installing"* when complete. This may take awhile before the options appear in Hestia. You can force manual installation via:
+Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. 
+
+<br><img src='images/nodeapp-notify.jpg' width='50%'><br>
+
+A notification will appear under the admin user account indicating *"NodeApp plugin has finished installing"* when complete. This may take awhile before the options appear in Hestia. You can force manual installation via:
 
 ```
 cd /usr/local/hestia/plugins/nodeapp
