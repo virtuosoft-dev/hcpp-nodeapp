@@ -35,12 +35,12 @@ module.exports = {
             /**
              * Pass the allocated port number as an argument to app.js
              * 
-             * The port number is read from a file in /opt/hcpp/ports/%username%/%domain%.ports,
+             * The port number is read from a file in /usr/local/hestia/data/hcpp/ports/%username%/%domain%.ports,
              * we know the username and domain name from the current directory path.
              */
             let port = 0;
             let file = __dirname;
-            file = file.replace('/home/', '/opt/hcpp/ports/').replace('/web/', '/').replace('/nodeapp', '.ports');
+            file = file.replace('/home/', '/usr/local/hestia/data/hcpp/ports/').replace('/web/', '/').replace('/nodeapp', '.ports');
             const fs = require('fs');
             let ports = fs.readFileSync(file, {encoding:'utf8', flag:'r'});
             ports = ports.split(/\r?\n/);

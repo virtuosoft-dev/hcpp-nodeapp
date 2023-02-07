@@ -7,7 +7,7 @@ server {
     server_name %domain_idn% %alias_idn%;
     
     include %home%/%user%/conf/web/%domain%/nginx.forcessl.conf*;
-    include /opt/hcpp/ports/%user%/%domain%.ports;
+    include /usr/local/hestia/data/hcpp/ports/%user%/%domain%.ports;
         
     error_log  /var/log/%web_system%/domains/%domain%.error.log error;
     client_max_body_size 512m;

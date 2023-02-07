@@ -25,7 +25,7 @@ server {
     gzip_vary on;
     
     include %home%/%user%/conf/web/%domain%/nginx.hsts.conf*;
-    include /opt/hcpp/ports/%user%/%domain%.ports;
+    include /usr/local/hestia/data/hcpp/ports/%user%/%domain%.ports;
     client_max_body_size 512m;
     
     location / {

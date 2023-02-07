@@ -82,8 +82,8 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $parse[4];
 
             // Wipe the existing ports for this domain
-            if ( file_exists( "/opt/hcpp/ports/$user/$domain.ports" ) ) {
-                unlink( "/opt/hcpp/ports/$user/$domain.ports" );
+            if ( file_exists( "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports" ) ) {
+                unlink( "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports" );
             }
 
             // Allocate a port for each app
