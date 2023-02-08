@@ -150,6 +150,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * alter the behavior.
          */
         public function shutdown_apps( $nodeapp_folder ) {
+            global $hcpp;
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
@@ -166,9 +167,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 $cmd .= '; pm2 delete ' . $name . '.config.js ';
             }
             $cmd .= '"';
-
-            if ( strpos( $cmd, '; pm2 start ' ) ) {
-                global $hcpp;
+            if ( strpos( $cmd, '; pm2 delete ' ) ) {
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
