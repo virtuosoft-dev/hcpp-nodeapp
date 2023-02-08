@@ -86,8 +86,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 unlink( "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports" );
             }
 
-            // Allocate a port for each app
-            $files = glob("$nodeapp_folder/*.config.js");
+            // Allocate a port for each .config.js file found
+            $files = $this->get_config_files( $nodeapp_folder );          
             foreach($files as $file) {
 
                 // Get the name of the app from the filename
@@ -115,17 +115,12 @@ if ( ! class_exists( 'NodeApp') ) {
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
-            $files = glob("$nodeapp_folder/*.config.js");
+            $files = $this->get_config_files( $nodeapp_folder );
             $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
             foreach($files as $file) {
-
-                // Get the name of the app from the filename
-                if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
-                $name = str_replace( '.config.js', '', end( explode( '/', $file ) ) );
-                $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
                 
                 // Add app to startup
-                $cmd .= '; pm2 start ' . $name . '.config.js ';
+                $cmd .= "; pm2 start $file ";
             }
             $cmd .= '"';
 
@@ -145,28 +140,29 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
-         * Scan the nodeapp folder for .config.js files and delete the app for each,
+         * Gather list of all running apps to delete and construct shutdown command,
          * instead of pm2 delete all; delete each one individually as filters may
-         * alter the behavior.
+         * alter the behavior to keep user and select domain apps running.
          */
         public function shutdown_apps( $nodeapp_folder ) {
             global $hcpp;
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
-            $files = glob("$nodeapp_folder/*.config.js");
-            $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
-            foreach($files as $file) {
 
-                // Get the name of the app from the filename
-                if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
-                $name = str_replace( '.config.js', '', end( explode( '/', $file ) ) );
-                $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
-                
-                // Add app to shutdown
-                $cmd .= '; pm2 delete ' . $name . '.config.js ';
+            // Get list of apps to delete
+            $cmd = 'runuser -l ' . $user . ' -c "pm2 ls | grep ' . $domain . '"';
+            $lines = shell_exec( $cmd );
+            $lines = explode( "\n", $lines );
+            $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
+            foreach( $lines as $l ) {
+                if ( strpos( $l, '-' . $domain ) === false ) continue;
+                $app = $this->getRightMost( $this->getLeftMost( $l, '-' ), ' ' );
+                $app = $app . '-' . $domain;
+
+                // Add app to shutdown by name
+                $cmd .= "; pm2 delete $app ";
             }
-            $cmd .= '"';
             if ( strpos( $cmd, '; pm2 delete ' ) ) {
                 $args = [
                     'user' => $user,
@@ -178,31 +174,92 @@ if ( ! class_exists( 'NodeApp') ) {
                 $args = $hcpp->do_action( 'nodeapp_shutdown_services', $args );
                 $cmd = $args['cmd'];
                 shell_exec( $cmd );
-            }
+            }            
         }
 
+        /**
+         * Copy a folder recursively
+         */
         public function copy_folder( $src, $dst, $user ) {
-            if ( is_dir( $src ) ) {
-              if ( !is_dir( $dst ) ) {
-                mkdir( $dst );
-                chmod( $dst, 0750);
-                chown( $dst, $user );
-                chgrp( $dst, $user );
-              }
-          
-              $files = scandir( $src );
-              foreach ( $files as $file ) {
-                if ( $file != "." && $file != ".." ) {
-                  $this->copy_folder( "$src/$file", "$dst/$file", $user );
+            if (is_dir($src)) {
+                if (!is_dir($dst)) {
+                    mkdir($dst);
+                    chmod($dst, 0750);
+                    chown($dst, $user);
+                    chgrp($dst, $user);
                 }
-              }
-            } elseif ( file_exists( $src ) ) {
-              copy( $src, $dst );
-              chmod( $dst, 0640);
-              chown( $dst, $user );
-              chgrp( $dst, $user );
+
+                $files = scandir($src);
+                foreach ($files as $file) {
+                    if ($file != "." && $file != "..") {
+                        $this->copy_folder("$src/$file", "$dst/$file", $user);
+                    }
+                }
+            } elseif (file_exists($src)) {
+                copy($src, $dst);
+                chmod($dst, 0640);
+                chown($dst, $user);
+                chgrp($dst, $user);
             }
-          }
+        }
+    
+        /**
+         * Gather a list of all configuration files for the given folder
+         */
+        public function get_config_files( $dir ) {
+            $configFiles = array();
+            $files = scandir( $dir );
+            foreach ( $files as $file ) {
+                if ( $file == '.' || $file == '..' ) continue;
+                $path = $dir . '/' . $file;
+                if ( is_dir( $path ) && $file != "node_modules" ) {
+                    $configFiles = array_merge( $configFiles, $this->getConfigFiles( $path ) );
+                } else if ( preg_match('/\.config\.js$/', $file ) ) {
+
+                    // Sanitize the name of the app to prevent Nginx injection
+                    if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
+                    $name = str_replace( '.config.js', '', end( explode( '/', $file ) ) );
+                    $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
+                    if ( $path == $dir . '/' . $name . '.config.js' ) {
+                        $configFiles[] = $path;
+                    }
+                }
+            }
+            return $configFiles;
+        }
+
+        /**
+         * Returns the left most string from the found search string
+         * starting from left to right, excluding the search string itself.
+         *
+         * @return string
+         */
+        public function getLeftMost( $sSource, $sSearch ) {
+            for ( $i = 0; $i < strlen( $sSource ); $i = $i + 1 ) {
+                $f = strpos( $sSource, $sSearch, $i );
+                if ( $f !== false ) {
+                    return substr( $sSource, 0, $f );
+                    break;
+                }
+            }
+            return $sSource;
+        }
+
+        /**
+         * Returns the right most string from the found search string
+         * starting from right to left, excluding the search string itself.
+         *
+         * @return string
+         */
+        public function getRightMost( $sSource, $sSearch ) {
+            for ( $i = strlen( $sSource ); $i >= 0; $i = $i - 1 ) {
+                $f = strpos( $sSource, $sSearch, $i );
+                if ( $f !== false ) {
+                    return substr( $sSource, $f + strlen( $sSearch ), strlen( $sSource ) );
+                }
+            }
+            return $sSource;
+        }
     }
     new NodeApp();
 }
