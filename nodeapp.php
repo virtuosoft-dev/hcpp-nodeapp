@@ -21,6 +21,8 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->nodeapp = $this;
             $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', [ $this, 'priv_change_web_domain_proxy_tpl' ] );
             $hcpp->add_action( 'pre_delete_web_domain_backend', [ $this, 'pre_delete_web_domain_backend' ] );
+            $hcpp->add_action( 'priv_unsuspend_web_domain', [ $this, 'priv_unsuspend_web_domain' ] );
+            $hcpp->add_action( 'priv_suspend_web_domain', [ $this, 'priv_suspend_web_domain' ] );
         }
 
         /**
@@ -73,6 +75,28 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * On domain suspend, shutdown apps
+         */
+        public function priv_suspend_web_domain( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            $this->shutdown_apps( $nodeapp_folder );
+        }
+
+        /**
+         * On domain unsuspend, startup apps
+         */
+        public function priv_unsuspend_web_domain( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            $this->startup_apps( $nodeapp_folder );
+        }
+
+        /**
          * Scan the nodeapp folder for .config.js files and allocate a port for each
          */
         public function allocate_ports( $nodeapp_folder ) {
@@ -112,6 +136,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * Scan the nodeapp folder for .config.js files and start the app for each
          */
         public function startup_apps( $nodeapp_folder ) {
+            global $hcpp;
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
@@ -125,7 +150,6 @@ if ( ! class_exists( 'NodeApp') ) {
             $cmd .= '"';
 
             if ( strpos( $cmd, '; pm2 start ' ) ) {
-                global $hcpp;
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
@@ -151,7 +175,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $parse[4];
 
             // Get list of apps to delete
-            $cmd = 'runuser -l ' . $user . ' -c "pm2 ls | grep ' . $domain . '"';
+            $cmd = 'runuser -l ' . $user . ' -c "source /opt/nvm/nvm.sh ; pm2 ls | grep ' . $domain . '"';
             $lines = shell_exec( $cmd );
             $lines = explode( "\n", $lines );
             $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
@@ -163,6 +187,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Add app to shutdown by name
                 $cmd .= "; pm2 delete $app ";
             }
+            $cmd .= '"';
             if ( strpos( $cmd, '; pm2 delete ' ) ) {
                 $args = [
                     'user' => $user,
@@ -207,13 +232,14 @@ if ( ! class_exists( 'NodeApp') ) {
          * Gather a list of all configuration files for the given folder
          */
         public function get_config_files( $dir ) {
+            global $hcpp;
             $configFiles = array();
             $files = scandir( $dir );
             foreach ( $files as $file ) {
                 if ( $file == '.' || $file == '..' ) continue;
                 $path = $dir . '/' . $file;
                 if ( is_dir( $path ) && $file != "node_modules" ) {
-                    $configFiles = array_merge( $configFiles, $this->getConfigFiles( $path ) );
+                    $configFiles = array_merge( $configFiles, $this->get_config_files( $path ) );
                 } else if ( preg_match('/\.config\.js$/', $file ) ) {
 
                     // Sanitize the name of the app to prevent Nginx injection
