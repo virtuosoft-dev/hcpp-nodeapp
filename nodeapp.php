@@ -59,6 +59,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     shell_exec( $args['cmd'] );
                 }
                 $this->allocate_ports( $nodeapp_folder );
+                $this->generate_nginx_subfolder_proxies( $nodeapp_folder );
                 $this->startup_apps( $nodeapp_folder );
             }
         }
@@ -130,6 +131,65 @@ if ( ! class_exists( 'NodeApp') ) {
                 'nodeapp_folder' => $nodeapp_folder
             ];
             $hcpp->do_action( 'nodeapp_ports_allocated', $args );
+        }
+
+        /**
+         * Generate Nginx proxy settings for each .config.js file found in subfolders
+         * and map the subfolder to a matching reverse proxy url of the same path
+         */
+        public function generate_nginx_subfolder_proxies( $nodeapp_folder ) {
+            global $hcpp;
+            $parse = explode( '/', $nodeapp_folder );
+            $user = $parse[2];
+            $domain = $parse[4];
+            $files = $this->get_config_files( $nodeapp_folder );
+
+            // Remove prior nginx nodeapp_subfolder config file
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp_subfolder" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp_subfolder" );
+            }
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp_subfolder" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp_subfolder" );
+            }
+            
+            // Generate new nginx nodeapp_subfolder config file
+            $nginx = '';
+            foreach($files as $file) {
+
+                $subfolder = str_replace( "$nodeapp_folder/", '', $file );
+                $subfolder = $this->delRightMost( $subfolder, '/' );
+                if ( $subfolder == '' ) continue;
+                $app = $this->getRightMost( $file, '/' );
+                $app = str_replace( '.config.js', '', $app );               
+
+                $nginx .= 'location /' . $subfolder . '/ {
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header Host $host;
+                    proxy_pass http://127.0.0.1:' . $app . '_port;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                }';
+            }
+
+            // Write the nginx config file to the user's conf folder
+            if ($nginx != '') {
+                $nginx = "include /usr/local/hestia/data/hcpp/ports/%user%/%domain%.ports;\n" . $nginx;
+                $args = [
+                    'user' => $user,
+                    'domain' => $domain,
+                    'nginx' => $nginx
+                ];
+
+                // Allow other plugins to modify the subfolder nginx config files
+                $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_conf', $args );
+                $nginx = $args['nginx'];
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.conf_nodeapp_subfolder", $nginx );
+
+                $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_ssl_conf', $args );
+                $nginx = $args['nginx'];
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp_subfolder", $nginx );
+            }
         }
 
         /**
@@ -252,6 +312,41 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
             return $configFiles;
+        }
+
+        /**
+         * Deletes the right most string from the found search string
+         * starting from right to left, including the search string itself.
+         *
+         * @return string
+         */
+        public function delRightMost( $sSource, $sSearch ) {
+            for ( $i = strlen( $sSource ); $i >= 0; $i = $i - 1 ) {
+                $f = strpos( $sSource, $sSearch, $i );
+                if ( $f !== false ) {
+                    return substr( $sSource, 0, $f );
+                    break;
+                }
+            }
+            return $sSource;
+        }
+
+        /**
+         * Deletes the left most string from the found search string
+         * starting from 
+         *
+         * @return string
+         */
+        public function delLeftMost( $sSource, $sSearch ) {
+            $sSource = $this->value;
+            for ( $i = 0; $i < strlen( $sSource ); $i = $i + 1 ) {
+                $f = strpos( $sSource, $sSearch, $i );
+                if ( $f !== false ) {
+                    return substr( $sSource, $f + strlen( $sSearch ), strlen( $sSource ) );
+                    break;
+                }
+            }
+            return $sSource;
         }
 
         /**
