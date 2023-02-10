@@ -9,6 +9,5 @@ sed '/^# begin hestiacp-nodeapp$/,/^# end hestiacp-nodeapp$/d' /etc/bash.bashrc 
 ############################################
 # Uninstall templates
 ############################################
-rm -f /usr/local/hestia/data/templates/web/nginx/NodeApp.sh
 rm -f /usr/local/hestia/data/templates/web/nginx/NodeApp.tpl
 rm -f /usr/local/hestia/data/templates/web/nginx/NodeApp.stpl

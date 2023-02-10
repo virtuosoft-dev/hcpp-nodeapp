@@ -2,7 +2,7 @@
 /**
  * Extend the HestiaCP Pluginable object with our NodeApp object for
  * allocating NodeJS app ports and starting & stopping apps via PM2
- * for every .config.js file present.
+ * and NVM for every .config.js file present.
  * 
  * @version 1.0.0
  * @license GPL-3.0
@@ -12,6 +12,8 @@
 
 if ( ! class_exists( 'NodeApp') ) {
     class NodeApp {
+        public $domain = "";
+        public $user = "";
 
         /**
          * Constructor, listen for the priv_change_web_domain_proxy_tpl event
@@ -21,8 +23,8 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->nodeapp = $this;
             $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', [ $this, 'priv_change_web_domain_proxy_tpl' ] );
             $hcpp->add_action( 'pre_delete_web_domain_backend', [ $this, 'pre_delete_web_domain_backend' ] );
-            $hcpp->add_action( 'priv_unsuspend_web_domain', [ $this, 'priv_unsuspend_web_domain' ] );
             $hcpp->add_action( 'priv_suspend_web_domain', [ $this, 'priv_suspend_web_domain' ] );
+            $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] );
         }
 
         /**
@@ -33,15 +35,18 @@ if ( ! class_exists( 'NodeApp') ) {
             $user = $args[0];
             $domain = $args[1];
             $proxy = $args[2];
-            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            if ( $proxy != 'NodeApp' ) {
-                if ( is_dir( $nodeapp_folder) ) {
-                    $hcpp->nodeapp->shutdown_apps( $nodeapp_folder );
-                }
-            }else{
 
-                // Copy initial nodeapp folder
+            // Remember for post_change_web_domain_proxy_tpl
+            $this->user = $user;
+            $this->domain = $domain;
+
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            
+            if ( $proxy == 'NodeApp' ) {
+
                 if ( !is_dir( $nodeapp_folder) ) {
+
+                    // Copy initial nodeapp folder
                     $this->copy_folder( '/usr/local/hestia/plugins/nodeapp/nodeapp', $nodeapp_folder, $user );
                     $args = [
                         'user' => $user,
@@ -58,9 +63,21 @@ if ( ! class_exists( 'NodeApp') ) {
                     $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
                     shell_exec( $args['cmd'] );
                 }
+
+                // Shutdown stray apps and startup root and subfolder apps
+                $this->shutdown_apps( $nodeapp_folder );
                 $this->allocate_ports( $nodeapp_folder );
-                $this->generate_nginx_subfolder_proxies( $nodeapp_folder );
+                $this->generate_nginx_files( $nodeapp_folder );
                 $this->startup_apps( $nodeapp_folder );
+            }else {
+
+                // Shutdown stray apps and only startup subfolder apps
+                if ( is_dir( $nodeapp_folder) ) {
+                    $this->shutdown_apps( $nodeapp_folder );
+                    $this->allocate_ports( $nodeapp_folder );
+                    $this->generate_nginx_files( $nodeapp_folder, false );
+                    $this->startup_apps( $nodeapp_folder, false );
+                }
             }
         }
 
@@ -89,12 +106,20 @@ if ( ! class_exists( 'NodeApp') ) {
         /**
          * On domain unsuspend, startup apps
          */
-        public function priv_unsuspend_web_domain( $args ) {
+        public function priv_unsuspend_domain( $args ) {
             global $hcpp;
             $user = $args[0];
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            $this->startup_apps( $nodeapp_folder );
+            if ( is_dir( $nodeapp_folder) ) {
+                $proxy = $hcpp->run("v-list-web-domain $user $domain json");
+                if ( $proxy != NULL ) {
+                   $proxy = $proxy[$domain]["PROXY"];
+                   $this->allocate_ports( $nodeapp_folder );
+                   $this->generate_nginx_files( $nodeapp_folder, ( $proxy == "NodeApp" ) );
+                   $this->startup_apps( $nodeapp_folder, ( $proxy == "NodeApp" ) );
+                }    
+            }
         }
 
         /**
@@ -137,44 +162,47 @@ if ( ! class_exists( 'NodeApp') ) {
          * Generate Nginx proxy settings for each .config.js file found in subfolders
          * and map the subfolder to a matching reverse proxy url of the same path
          */
-        public function generate_nginx_subfolder_proxies( $nodeapp_folder ) {
+        public function generate_nginx_files( $nodeapp_folder, $inc_root = true ) {
             global $hcpp;
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
             $files = $this->get_config_files( $nodeapp_folder );
 
-            // Remove prior nginx nodeapp_subfolder config file
-            if ( file_exists( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp_subfolder" ) ) {
-                unlink( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp_subfolder" );
+            // Remove prior nginx config files
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" );
             }
-            if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp_subfolder" ) ) {
-                unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp_subfolder" );
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
             }
             
-            // Generate new nginx nodeapp_subfolder config file
+
+            // Generate new nodeapp nginx config files
             $nginx = '';
             foreach($files as $file) {
 
                 $subfolder = str_replace( "$nodeapp_folder/", '', $file );
-                $subfolder = $this->delRightMost( $subfolder, '/' );
-                if ( $subfolder == '' ) continue;
+                if ( strpos( $subfolder, '/' ) === false ) {
+                    $subfolder = '/';
+                }else{
+                    $subfolder = '/' . $this->delRightMost($subfolder, '/') . '/';
+                }
+                if ( $inc_root == false && $subfolder == '/' ) continue; // Skip root
                 $app = $this->getRightMost( $file, '/' );
-                $app = str_replace( '.config.js', '', $app );               
-
-                $nginx .= 'location /' . $subfolder . '/ {
+                $app = str_replace( '.config.js', '', $app );
+                $nginx .= 'location ' . $subfolder . ' {
                     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                     proxy_set_header Host $host;
-                    proxy_pass http://127.0.0.1:' . $app . '_port;
+                    proxy_pass http://127.0.0.1:$' . $app . '_port;
                     proxy_http_version 1.1;
                     proxy_set_header Upgrade $http_upgrade;
                     proxy_set_header Connection "upgrade";
-                }';
+                }' . "\n";
             }
 
-            // Write the nginx config file to the user's conf folder
+            // Write the nginx config nodeapp subfolder file to the user's conf folder
             if ($nginx != '') {
-                $nginx = "include /usr/local/hestia/data/hcpp/ports/%user%/%domain%.ports;\n" . $nginx;
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
@@ -184,19 +212,35 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Allow other plugins to modify the subfolder nginx config files
                 $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_conf', $args );
                 $nginx = $args['nginx'];
-                file_put_contents( "/home/$user/conf/web/$domain/nginx.conf_nodeapp_subfolder", $nginx );
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.conf_nodeapp", $nginx );
 
                 $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_ssl_conf', $args );
                 $nginx = $args['nginx'];
-                file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp_subfolder", $nginx );
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp", $nginx );
+            }
+
+            // Include port variables in nginx.hsts.conf_ports and nginx.forcessl.conf_ports
+            $file = "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports";
+            if ( file_exists( $file ) ) {
+                $content = "include /usr/local/hestia/data/hcpp/ports/$user/$domain.ports;";
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports", $content );
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports", $content );
+            }else{
+                if ( file_exists( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" ) ) {
+                    unlink( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" );
+                }
+                if ( file_exists( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" ) ) {
+                    unlink( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" );
+                }
             }
         }
 
         /**
          * Scan the nodeapp folder for .config.js files and start the app for each
          */
-        public function startup_apps( $nodeapp_folder ) {
+        public function startup_apps( $nodeapp_folder, $inc_root = true ) {
             global $hcpp;
+            $hcpp->log( "startup_apps" );
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
@@ -204,11 +248,17 @@ if ( ! class_exists( 'NodeApp') ) {
             $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
             foreach($files as $file) {
                 
+                // Skip the root app if inc_root is false
+                if ( $inc_root == false ) {
+                    $subfolder = str_replace( "$nodeapp_folder/", '', $file );
+                    if ( strpos( $subfolder, '/' ) == false) continue;
+                }
+
                 // Add app to startup
                 $cmd .= "; pm2 start $file ";
             }
             $cmd .= '"';
-
+            $hcpp->log( $cmd );
             if ( strpos( $cmd, '; pm2 start ' ) ) {
                 $args = [
                     'user' => $user,
@@ -219,6 +269,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Run the command to start all the apps
                 $args = $hcpp->do_action( 'nodeapp_startup_services', $args );
                 $cmd = $args['cmd'];
+                $hcpp->log( $cmd );
                 shell_exec( $cmd );
             }
         }
@@ -338,7 +389,6 @@ if ( ! class_exists( 'NodeApp') ) {
          * @return string
          */
         public function delLeftMost( $sSource, $sSearch ) {
-            $sSource = $this->value;
             for ( $i = 0; $i < strlen( $sSource ); $i = $i + 1 ) {
                 $f = strpos( $sSource, $sSearch, $i );
                 if ( $f !== false ) {

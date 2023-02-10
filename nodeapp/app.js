@@ -14,10 +14,10 @@ if (port == 0) {
     process.exit(1);
 }
 
-app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
+app.get('*', (req, res) => {
+  res.send('Hello World!');
+});
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  console.log(`Example app listening on port ${port}`);
 });
