@@ -54,7 +54,7 @@ module.exports = {
                 port = parseInt(port.trim().split(' ').pop());
                 return "-p " + port;
             })(),
-            watch: ['.restart/' + app],
+            watch: ['.restart'],
             ignore_watch: [],
             watch_delay: 5000,
             restart_delay: 5000
