@@ -25,3 +25,6 @@ v14.21.1
 v16.18.1
 v18.12.1
 ```
+
+## Create Project
+You can create your own project by simply renaming the app.js and app.config.js file; change 'app' to your own project. Don't forget to update the package.json's `main` property from 'app' to your own project's name. 

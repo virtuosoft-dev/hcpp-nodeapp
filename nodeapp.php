@@ -240,7 +240,6 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function startup_apps( $nodeapp_folder, $inc_root = true ) {
             global $hcpp;
-            $hcpp->log( "startup_apps" );
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
@@ -258,7 +257,6 @@ if ( ! class_exists( 'NodeApp') ) {
                 $cmd .= "; pm2 start $file ";
             }
             $cmd .= '"';
-            $hcpp->log( $cmd );
             if ( strpos( $cmd, '; pm2 start ' ) ) {
                 $args = [
                     'user' => $user,
@@ -269,7 +267,6 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Run the command to start all the apps
                 $args = $hcpp->do_action( 'nodeapp_startup_services', $args );
                 $cmd = $args['cmd'];
-                $hcpp->log( $cmd );
                 shell_exec( $cmd );
             }
         }
