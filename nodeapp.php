@@ -352,7 +352,9 @@ if ( ! class_exists( 'NodeApp') ) {
 
                     // Sanitize the name of the app to prevent Nginx injection
                     if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
-                    $name = str_replace( '.config.js', '', end( explode( '/', $file ) ) );
+                    $file = explode( '/', $file );
+                    $file = end( $file );
+                    $name = str_replace( '.config.js', '', $file );
                     $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
                     if ( $path == $dir . '/' . $name . '.config.js' ) {
                         $configFiles[] = $path;
