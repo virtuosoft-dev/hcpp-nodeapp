@@ -142,7 +142,9 @@ if ( ! class_exists( 'NodeApp') ) {
 
                 // Get the name of the app from the filename
                 if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
-                $name = str_replace( '.config.js', '', end( explode( '/', $file ) ) );
+                $file = explode( '/', $file );
+                $file = end( $file );
+                $name = str_replace( '.config.js', '', $file );
                 $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name ) . "_port";
                 
                 // Allocate a port for the app
