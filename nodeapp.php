@@ -244,7 +244,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * @param string $chars The set of possible characters to choose from.
          * @return string The resulting randomly generated string.
          */
-        public static function random_chars( $length = 10, $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890' ) {
+        public function random_chars( $length = 10, $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890' ) {
             $string = '';
             for ( $i = 0; $i < $length; $i++ ) {
                 $string .= $chars[rand( 0, strlen( $chars ) - 1 )];
