@@ -238,6 +238,21 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Generate random alpha numeric for passwords, seeds, etc.
+         *
+         * @param int $length The length of characters to return.
+         * @param string $chars The set of possible characters to choose from.
+         * @return string The resulting randomly generated string.
+         */
+        public static function random_chars( $length = 10, $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890' ) {
+            $string = '';
+            for ( $i = 0; $i < $length; $i++ ) {
+                $string .= $chars[rand( 0, strlen( $chars ) - 1 )];
+            }
+            return $string;
+        }
+
+        /**
          * Scan the nodeapp folder for .config.js files and start the app for each
          */
         public function startup_apps( $nodeapp_folder, $inc_root = true ) {
