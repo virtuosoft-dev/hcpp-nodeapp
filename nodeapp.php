@@ -188,10 +188,10 @@ if ( ! class_exists( 'NodeApp') ) {
                 if ( strpos( $subfolder, '/' ) === false ) {
                     $subfolder = '/';
                 }else{
-                    $subfolder = '/' . $this->delRightMost($subfolder, '/') . '/';
+                    $subfolder = '/' . $hcpp->delRightMost($subfolder, '/') . '/';
                 }
                 if ( $inc_root == false && $subfolder == '/' ) continue; // Skip root
-                $app = $this->getRightMost( $file, '/' );
+                $app = $hcpp->getRightMost( $file, '/' );
                 $app = str_replace( '.config.js', '', $app );
                 $nginx .= 'location ' . $subfolder . ' {
                     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -306,7 +306,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
             foreach( $lines as $l ) {
                 if ( strpos( $l, '-' . $domain ) === false ) continue;
-                $app = $this->getRightMost( $this->getLeftMost( $l, '-' ), ' ' );
+                $app = $hcpp->getRightMost( $hcpp->getLeftMost( $l, '-' ), ' ' );
                 $app = $app . '-' . $domain;
 
                 // Add app to shutdown by name
@@ -379,73 +379,6 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
             return $configFiles;
-        }
-
-        /**
-         * Deletes the right most string from the found search string
-         * starting from right to left, including the search string itself.
-         *
-         * @return string
-         */
-        public function delRightMost( $sSource, $sSearch ) {
-            for ( $i = strlen( $sSource ); $i >= 0; $i = $i - 1 ) {
-                $f = strpos( $sSource, $sSearch, $i );
-                if ( $f !== false ) {
-                    return substr( $sSource, 0, $f );
-                    break;
-                }
-            }
-            return $sSource;
-        }
-
-        /**
-         * Deletes the left most string from the found search string
-         * starting from 
-         *
-         * @return string
-         */
-        public function delLeftMost( $sSource, $sSearch ) {
-            for ( $i = 0; $i < strlen( $sSource ); $i = $i + 1 ) {
-                $f = strpos( $sSource, $sSearch, $i );
-                if ( $f !== false ) {
-                    return substr( $sSource, $f + strlen( $sSearch ), strlen( $sSource ) );
-                    break;
-                }
-            }
-            return $sSource;
-        }
-
-        /**
-         * Returns the left most string from the found search string
-         * starting from left to right, excluding the search string itself.
-         *
-         * @return string
-         */
-        public function getLeftMost( $sSource, $sSearch ) {
-            for ( $i = 0; $i < strlen( $sSource ); $i = $i + 1 ) {
-                $f = strpos( $sSource, $sSearch, $i );
-                if ( $f !== false ) {
-                    return substr( $sSource, 0, $f );
-                    break;
-                }
-            }
-            return $sSource;
-        }
-
-        /**
-         * Returns the right most string from the found search string
-         * starting from right to left, excluding the search string itself.
-         *
-         * @return string
-         */
-        public function getRightMost( $sSource, $sSearch ) {
-            for ( $i = strlen( $sSource ); $i >= 0; $i = $i - 1 ) {
-                $f = strpos( $sSource, $sSearch, $i );
-                if ( $f !== false ) {
-                    return substr( $sSource, $f + strlen( $sSearch ), strlen( $sSource ) );
-                }
-            }
-            return $sSource;
         }
     }
     new NodeApp();
