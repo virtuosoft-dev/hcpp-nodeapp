@@ -354,7 +354,7 @@ if ( ! class_exists( 'NodeApp') ) {
         }
     
         /**
-         * Gather a list of all configuration files for the given folder
+         * Gather a list of all valid PM2 configuration files that allocate ports from the given folder
          */
         public function get_config_files( $dir ) {
             global $hcpp;
@@ -374,7 +374,11 @@ if ( ! class_exists( 'NodeApp') ) {
                     $name = str_replace( '.config.js', '', $file );
                     $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
                     if ( $path == $dir . '/' . $name . '.config.js' ) {
-                        $configFiles[] = $path;
+
+                        // Check for pm2/port allocating validity
+                        if ( file_exists( $path ) && strpos( file_get_contents( $path ), '/usr/local/hestia/data/hcpp/ports/') !== false ) {
+                            $configFiles[] = $path;
+                        }
                     }
                 }
             }
