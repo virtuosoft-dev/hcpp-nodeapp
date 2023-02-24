@@ -47,7 +47,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 if ( !is_dir( $nodeapp_folder) ) {
 
                     // Copy initial nodeapp folder
-                    $this->copy_folder( '/usr/local/hestia/plugins/nodeapp/nodeapp', $nodeapp_folder, $user );
+                    $hcpp->copy_folder( '/usr/local/hestia/plugins/nodeapp/nodeapp', $nodeapp_folder, $user );
                     $args = [
                         'user' => $user,
                         'domain' => $domain,
@@ -327,32 +327,6 @@ if ( ! class_exists( 'NodeApp') ) {
             }            
         }
 
-        /**
-         * Copy a folder recursively
-         */
-        public function copy_folder( $src, $dst, $user ) {
-            if (is_dir($src)) {
-                if (!is_dir($dst)) {
-                    mkdir($dst);
-                    chmod($dst, 0750);
-                    chown($dst, $user);
-                    chgrp($dst, $user);
-                }
-
-                $files = scandir($src);
-                foreach ($files as $file) {
-                    if ($file != "." && $file != "..") {
-                        $this->copy_folder("$src/$file", "$dst/$file", $user);
-                    }
-                }
-            } elseif (file_exists($src)) {
-                copy($src, $dst);
-                chmod($dst, 0640);
-                chown($dst, $user);
-                chgrp($dst, $user);
-            }
-        }
-    
         /**
          * Gather a list of all valid PM2 configuration files that allocate ports from the given folder
          */
