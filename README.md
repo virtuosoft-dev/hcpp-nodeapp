@@ -17,27 +17,17 @@ First, switch to root user:
 sudo -s
 ```
 
-You can just download the archive, unpack, and move it into place:
-
-```
-cd /tmp
-wget https://github.com/Steveorevo/hestiacp-nodeapp/archive/refs/heads/main.zip
-unzip main.zip
-mv hestiacp-nodeapp-main /usr/local/hestia/plugins/nodeapp
-rm main.zip
-```
-
-Note: It is important that the plugin folder name is `nodeapp`.
-
-Alternatively (instead of the commands above), you can just clone the repo:
+Then simply clone the repo to your plugins folder, with the name `nodeapp`:
 
 ```
 cd /usr/local/hestia/plugins
 git clone https://github.com/steveorevo/hestiacp-nodeapp nodeapp
 ```
 
+Note: It is important that the destination plugin folder name is `nodeapp`.
 
-Be sure to logout and login again to your Hestia Control Panel; the plugin will immediately start installing NodeJS depedencies in the background. 
+
+Be sure to logout and login again to your Hestia Control Panel as the admin user or, as admin, visit Server (gear icon) -> Configure -> Plugins -> Save; the plugin will immediately start installing NodeJS depedencies in the background. 
 
 <br><img src='images/nodeapp-notify.jpg' width='50%'><br>
 <sub>Figure 1 - NodeApp plugin install notification</sub>
