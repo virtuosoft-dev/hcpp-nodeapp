@@ -349,8 +349,8 @@ if ( ! class_exists( 'NodeApp') ) {
                     $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
                     if ( $path == $dir . '/' . $name . '.config.js' ) {
 
-                        // Check for pm2/port allocating validity
-                        if ( file_exists( $path ) && strpos( file_get_contents( $path ), '/usr/local/hestia/data/hcpp/ports/') !== false ) {
+                        // Check for hestia pm2 port allocating validity
+                        if ( file_exists( $path ) && strpos( file_get_contents( $path ), '/usr/local/hestia') !== false ) {
                             $configFiles[] = $path;
                         }
                     }
