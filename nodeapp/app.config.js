@@ -4,7 +4,7 @@
  */
 module.exports = {
     apps: (function() {
-        let nodeapp = [require('/usr/local/hestia/plugins/nodeapp/nodeapp.js')(__filename)];
-        return nodeapp;
+        let nodeapp = require('/usr/local/hestia/plugins/nodeapp/nodeapp.js')(__filename);
+        return [nodeapp];
     })()
 }
