@@ -48,11 +48,13 @@ module.exports = function(path) {
         }
     }
     port = parseInt(port.trim().split(' ').pop());
-    details.args = "-p " + port;
+    details._port = port;
+    details.args = "-p " + details._port;
 
     // Check for debug mode and pass debug port as port + 3000 offset
     if ( fs.existsSync(details.cwd + '/.restart/debug') ) {
-        details.interpreter_args = '--inspect=' + (port + 3000);
+        details._debugPort = port + 3000;
+        details.interpreter_args = '--inspect=' + details._debugPort;
     }
     return details;
 }
