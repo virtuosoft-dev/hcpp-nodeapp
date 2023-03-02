@@ -52,7 +52,7 @@ module.exports = function(path) {
     details.args = "-p " + details._port;
 
     // Check for debug mode and pass debug port as port + 3000 offset
-    if ( fs.existsSync(details.cwd + '/.restart/debug') ) {
+    if ( fs.existsSync(details.cwd + '/.debug') ) {
         details._debugPort = port + 3000;
         details.interpreter_args = '--inspect=' + details._debugPort;
     }
