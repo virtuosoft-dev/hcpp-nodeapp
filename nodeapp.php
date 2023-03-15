@@ -42,17 +42,17 @@ if ( ! class_exists( 'NodeApp') ) {
 
                     // Restart all PM2 apps for all user accounts
                     $users = scandir('/home');
-                    global hcpp;
+                    global $hcpp;
                     $cmd = '';
-                    foreach ($users as $user) {
+                    foreach ( $users as $user ) {
                         // Ignore hidden files/folders and system folders
-                        if ($user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd') {
+                        if ( $user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd' ) {
                             continue;
                         }
                         
                         // Check if the .pm2 folder exists in the user's home directory
                         $pm2Dir = "/home/$user/.pm2";
-                        if (is_dir($pm2Dir)) {
+                        if ( is_dir( $pm2Dir ) ) {
 
                             // Restart any pm2 processes
                             $cmd .= 'runuser -l ' . $user . ' -c "cd /home/' . $user . ' && ';
