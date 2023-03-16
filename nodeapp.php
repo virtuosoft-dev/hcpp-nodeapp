@@ -58,8 +58,7 @@ if ( ! class_exists( 'NodeApp') ) {
                             $cmd .= 'source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
                         }
                     }
-                    $hcpp->log( $cmd );
-                    $hcpp->log ( shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) ) );
+                    shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
                 }
             }
             return $args;
