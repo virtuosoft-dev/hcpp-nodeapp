@@ -62,6 +62,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
                 }
             }
+            return $args;
         }
 
         /**
