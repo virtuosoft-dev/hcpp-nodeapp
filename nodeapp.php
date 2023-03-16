@@ -32,10 +32,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * Check if system has rebooted and restart apps
          */
         public function priv_update_sys_queue( $args ) {
-            global $hcpp;
-            $hcpp->log( 'nodeapp->priv_update_sys_queue' );
-            $hcpp->log( $args );
-            if ( isset( $args[0] ) && $args[0] == 'reboot' ) {
+            if ( isset( $args[0] ) && $args[0] == 'restart' ) {
                 
                 // Check last reboot time
                 $file = '/usr/local/hestia/data/hcpp/last_reboot.txt';
