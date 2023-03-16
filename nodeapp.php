@@ -351,6 +351,7 @@ if ( ! class_exists( 'NodeApp') ) {
             }
             $cmd .= '"';
             if ( strpos( $cmd, '; pm2 delete ' ) ) {
+                $cmd .= "; pm2 save --force ";
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
