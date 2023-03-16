@@ -55,7 +55,7 @@ if ( ! class_exists( 'NodeApp') ) {
 
                             // Restart any pm2 processes
                             $cmd .= 'runuser -l ' . $user . ' -c "cd /home/' . $user . ' && ';
-                            $cmd .= 'source /opt/nvm/nvm.sh && pm2 resurrect"\n';
+                            $cmd .= 'source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
                         }
                     }
                     $hcpp->log( $cmd );
