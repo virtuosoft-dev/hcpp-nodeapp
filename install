@@ -30,11 +30,16 @@ nvm install 16.19.0
 nvm install 18.13.0
 nvm alias default 18.13.0
 
-# Install grunt globally
+# Install grunt, pm2 globally for all versions
 npm install -g grunt-cli
-
-# Install pm2 globally
 npm install -g pm2
+nvm use v16
+npm install -g grunt-cli
+npm install -g pm2
+nvm use v14
+npm install -g grunt-cli
+npm install -g pm2
+nvm use v18
 
 ############################################
 # Install templates
