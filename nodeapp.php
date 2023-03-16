@@ -312,6 +312,7 @@ if ( ! class_exists( 'NodeApp') ) {
             }
             $cmd .= '"';
             if ( strpos( $cmd, '; pm2 start ' ) ) {
+                $cmd .= "; pm2 save --force ";
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
