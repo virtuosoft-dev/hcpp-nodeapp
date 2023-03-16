@@ -32,7 +32,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * Check if system has rebooted and restart apps
          */
         public function priv_update_sys_queue( $args ) {
-            if ( isset( $args[0] )  && $args[0] == 'reboot' ) {
+            if ( isset( $args[0] ) && $args[0] == 'reboot' ) {
                 
                 // Check last reboot time
                 $file = '/usr/local/hestia/data/hcpp/last_reboot.txt';
@@ -51,15 +51,15 @@ if ( ! class_exists( 'NodeApp') ) {
                         }
                         
                         // Check if the .pm2 folder exists in the user's home directory
-                        $pm2Dir = "/home/$user/.pm2";
-                        if ( is_dir( $pm2Dir ) ) {
+                        if ( is_dir( "/home/$user/.pm2" ) ) {
 
                             // Restart any pm2 processes
                             $cmd .= 'runuser -l ' . $user . ' -c "cd /home/' . $user . ' && ';
                             $cmd .= 'source /opt/nvm/nvm.sh && pm2 resurrect"\n';
                         }
                     }
-                    shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
+                    $hcpp->log( $cmd );
+                    $hcpp->log ( shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) ) );
                 }
             }
             return $args;
