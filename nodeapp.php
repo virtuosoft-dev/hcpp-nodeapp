@@ -37,7 +37,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Check last reboot time
                 $file = '/usr/local/hestia/data/hcpp/last_reboot.txt';
                 $last = shell_exec("who -b");
-                if ( file_get_contents( $file ) !== $last ) {
+                if ( !file_exists( $file ) || file_get_contents( $file ) !== $last ) {
                     file_put_contents( $file, $last );
 
                     // Restart all PM2 apps for all user accounts
