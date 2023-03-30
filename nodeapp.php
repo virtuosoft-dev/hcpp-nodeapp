@@ -138,6 +138,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
+            return $args;
         }
 
         /**
@@ -157,6 +158,7 @@ if ( ! class_exists( 'NodeApp') ) {
                    $this->startup_apps( $nodeapp_folder, ( $proxy == "NodeApp" ) );
                 }    
             }
+            return $args;
         }
 
         /**
