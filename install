@@ -65,4 +65,4 @@ EOT
 fi
 
 # Notify installation has finished
-/usr/local/hestia/bin/v-add-user-notification admin NodeApp "&#11088; NodeApp plugin has finished installing."
+/usr/local/hestia/bin/v-add-user-notification admin NodeApp "<span style=\"font-size:x-large;color:green;\">&#11042;</span> NodeApp plugin has finished installing."
