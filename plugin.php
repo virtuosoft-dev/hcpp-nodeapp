@@ -1,8 +1,9 @@
 <?php
 /**
  * Plugin Name: NodeApp
- * Plugin URI: https://github.com/steveorevo/hestiacp-nodeapp
+ * Plugin URI: https://github.com/virtuosoft-dev/hcpp-nodeapp
  * Description: NodeApp is a plugin for HestiaCP that allows you to easily host NodeJS applications.
+ * Version: 1.0.0
  */
 
 // Register the install and uninstall scripts

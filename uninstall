@@ -4,7 +4,7 @@
 rm -rf /opt/nvm
 
 # Update global bash.bashrc
-sed '/^# begin hestiacp-nodeapp$/,/^# end hestiacp-nodeapp$/d' /etc/bash.bashrc > temp.txt && mv temp.txt /etc/bash.bashrc
+sed '/^# begin hcpp-nodeapp$/,/^# end hcpp-nodeapp$/d' /etc/bash.bashrc > temp.txt && mv temp.txt /etc/bash.bashrc
 
 ############################################
 # Uninstall templates
