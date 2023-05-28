@@ -37,6 +37,7 @@ A notification will appear under the admin user account indicating *"NodeApp plu
 ```
 cd /usr/local/hestia/plugins/nodeapp
 ./install
+touch "/usr/local/hestia/data/hcpp/installed/nodeapp"
 ```
 
 &nbsp;
