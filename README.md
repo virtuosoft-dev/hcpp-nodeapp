@@ -6,9 +6,6 @@ A plugin for Hestia Control Panel (via [hestiacp-pluginable](https://github.com/
 * Hydrogen v18
 
 &nbsp;
-> :warning: !!! Note: this repo is in progress; when completed, a release will appear in the release tab.
-
-&nbsp;
 ## Installation
 HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Switch to a root user and simply clone this project to the /usr/local/hestia/plugins folder. It should appear as a subfolder with the name `nodeapp`, i.e. `/usr/local/hestia/plugins/nodeapp`.
 
