@@ -54,7 +54,7 @@ if ( ! class_exists( 'NodeApp') ) {
                         if ( is_dir( "/home/$user/.pm2" ) ) {
 
                             // Restart any pm2 processes
-                            $cmd .= 'runuser -l ' . $user . ' -c "cd /home/' . $user . ' && ';
+                            $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
                             $cmd .= 'source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
                         }
                     }
@@ -95,7 +95,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     $nodeapp_folder = $args['nodeapp_folder'];
 
                     // Install dependencies
-                    $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh && npm install"';
+                    $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh && npm install"';
                     $args['cmd'] = $cmd;
                     $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
                     shell_exec( $args['cmd'] );
@@ -300,7 +300,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $user = $parse[2];
             $domain = $parse[4];
             $files = $this->get_config_files( $nodeapp_folder );
-            $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
+            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
             foreach($files as $file) {
                 
                 // Skip the root app if inc_root is false
@@ -340,10 +340,10 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $parse[4];
 
             // Get list of apps to delete
-            $cmd = 'runuser -l ' . $user . ' -c "source /opt/nvm/nvm.sh ; pm2 ls | grep ' . $domain . '"';
+            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "source /opt/nvm/nvm.sh ; pm2 ls | grep ' . $domain . '"';
             $lines = shell_exec( $cmd );
             $lines = explode( "\n", $lines );
-            $cmd = 'runuser -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
+            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
             foreach( $lines as $l ) {
                 if ( strpos( $l, '-' . $domain ) === false ) continue;
                 $app = $hcpp->getRightMost( $hcpp->getLeftMost( $l, '-' ), ' ' );
