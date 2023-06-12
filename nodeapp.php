@@ -26,6 +26,15 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'priv_suspend_web_domain', [ $this, 'priv_suspend_web_domain' ] );
             $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] );
             $hcpp->add_action( 'priv_update_sys_queue', [ $this, 'priv_update_sys_queue' ] );
+            $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
+        }
+
+        /**
+         * Modify runuser to incorporate NVM
+         */
+        public function hcpp_runuser( $cmd ) {
+            $cmd = 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && ' . $cmd;
+            return $cmd;
         }
 
         /**
@@ -55,7 +64,7 @@ if ( ! class_exists( 'NodeApp') ) {
 
                             // Restart any pm2 processes
                             $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
-                            $cmd .= 'source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
+                            $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
                         }
                     }
                     shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
@@ -95,7 +104,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     $nodeapp_folder = $args['nodeapp_folder'];
 
                     // Install dependencies
-                    $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh && npm install"';
+                    $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && npm install"';
                     $args['cmd'] = $cmd;
                     $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
                     shell_exec( $args['cmd'] );
@@ -300,7 +309,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $user = $parse[2];
             $domain = $parse[4];
             $files = $this->get_config_files( $nodeapp_folder );
-            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
+            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh ';
             foreach($files as $file) {
                 
                 // Skip the root app if inc_root is false
@@ -340,10 +349,10 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $parse[4];
 
             // Get list of apps to delete
-            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "source /opt/nvm/nvm.sh ; pm2 ls | grep ' . $domain . '"';
+            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh ; pm2 ls | grep ' . $domain . '"';
             $lines = shell_exec( $cmd );
             $lines = explode( "\n", $lines );
-            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && source /opt/nvm/nvm.sh ';
+            $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh ';
             foreach( $lines as $l ) {
                 if ( strpos( $l, '-' . $domain ) === false ) continue;
                 $app = $hcpp->getRightMost( $hcpp->getLeftMost( $l, '-' ), ' ' );
