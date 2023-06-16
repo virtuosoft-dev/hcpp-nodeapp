@@ -138,7 +138,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
         }
-d
+
         /**
          * Ensure we reload nginx to read our NodeApp configurations
          */
