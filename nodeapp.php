@@ -145,7 +145,7 @@ if ( ! class_exists( 'NodeApp') ) {
         public function post_restart_proxy() {
             global $hcpp;
             $cmd = '(sleep 5 && service nginx reload) > /dev/null 2>&1 &';
-            $hcpp->log( $cmd );
+            $cmd = $hcpp->do_action( 'nodeapp_nginx_reload', $cmd );
             shell_exec( $cmd );
         }
 
