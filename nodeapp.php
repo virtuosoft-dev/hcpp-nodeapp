@@ -23,7 +23,6 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->nodeapp = $this;
             $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', [ $this, 'priv_change_web_domain_proxy_tpl' ] );
             $hcpp->add_action( 'pre_delete_web_domain_backend', [ $this, 'pre_delete_web_domain_backend' ] );
-            $hcpp->add_action( 'post_restart_proxy', [ $this, 'post_restart_proxy' ], 50 );
             $hcpp->add_action( 'priv_suspend_web_domain', [ $this, 'priv_suspend_web_domain' ] );
             $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] );
             $hcpp->add_action( 'priv_update_sys_queue', [ $this, 'priv_update_sys_queue' ] );
@@ -137,16 +136,6 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
-        }
-
-        /**
-         * Ensure we reload nginx to read our NodeApp configurations
-         */
-        public function post_restart_proxy() {
-            global $hcpp;
-            $cmd = '(sleep 5 && service nginx reload) > /dev/null 2>&1 &';
-            $cmd = $hcpp->do_action( 'nodeapp_nginx_reload', $cmd );
-            shell_exec( $cmd );
         }
 
         /**

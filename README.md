@@ -72,7 +72,6 @@ the NodeApp. Developers can hook and implement their own NodeApp using these act
 * **nodeapp_subfolder_nginx_conf** - *occurs before writing Nginx conf file for subfolder app hosting.*
 * **nodeapp_subfolder_nginx_ssl_conf** - *occurs before writing Nginx SSL conf file for subfolder app hosting.*
 * **nodeapp_resurrect_apps** - *occurs after system reboot and issues the command to restart PM2 apps.*
-* **nodeapp_nginx_reload** - *occurs before Nginx is reloaded after 5 second delay; allows filtering the command.*
 
 ## Support the creator
 You can help this author's open source development endeavors by donating any amount to Stephen J. Carnam @ Virtuosoft. Your donation, no matter how large or small helps pay for essential time and resources to create MIT and GPL licensed projects that you and the world can benefit from. Click the link below to donate today :)
