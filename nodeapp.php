@@ -93,7 +93,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 if ( !is_dir( $nodeapp_folder) ) {
 
                     // Copy initial nodeapp folder
-                    $hcpp->copy_folder( '/usr/local/hestia/plugins/nodeapp/nodeapp', $nodeapp_folder, $user );
+                    $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
                     $args = [
                         'user' => $user,
                         'domain' => $domain,
