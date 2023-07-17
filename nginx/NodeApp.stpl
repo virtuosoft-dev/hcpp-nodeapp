@@ -11,6 +11,10 @@ server {
     ssl_stapling_verify on;
     error_log  /var/log/%web_system%/domains/%domain%.error.log error;
 
+    # TLS 1.3 0-RTT anti-replay
+    if ($anti_replay = 307) { return 307 https://$host$request_uri; }
+    if ($anti_replay = 425) { return 425; }
+    
     include %home%/%user%/conf/web/%domain%/nginx.hsts.conf*;
 
     location /error/ {
