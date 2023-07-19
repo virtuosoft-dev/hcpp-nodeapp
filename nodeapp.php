@@ -25,7 +25,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'pre_delete_web_domain_backend', [ $this, 'pre_delete_web_domain_backend' ] );
             $hcpp->add_action( 'priv_suspend_web_domain', [ $this, 'priv_suspend_web_domain' ] );
             $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] );
-            $hcpp->add_action( 'priv_update_sys_queue', [ $this, 'priv_update_sys_queue' ] );
+            $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
         }
 
@@ -40,37 +40,27 @@ if ( ! class_exists( 'NodeApp') ) {
         /**
          * Check if system has rebooted and restart apps
          */
-        public function priv_update_sys_queue( $args ) {
-            if ( isset( $args[0] ) && $args[0] == 'restart' ) {
+        public function hcpp_rebooted( $args ) {
+
+            // Restart all PM2 apps for all user accounts
+            $users = scandir('/home');
+            global $hcpp;
+            $cmd = '';
+            foreach ( $users as $user ) {
+                // Ignore hidden files/folders and system folders
+                if ( $user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd' ) {
+                    continue;
+                }
                 
-                // Check last reboot time
-                $file = '/usr/local/hestia/data/hcpp/last_reboot.txt';
-                $last = shell_exec("who -b");
-                if ( !file_exists( $file ) || file_get_contents( $file ) !== $last ) {
-                    file_put_contents( $file, $last );
+                // Check if the .pm2 folder exists in the user's home directory
+                if ( is_dir( "/home/$user/.pm2" ) ) {
 
-                    // Restart all PM2 apps for all user accounts
-                    $users = scandir('/home');
-                    global $hcpp;
-                    $cmd = '';
-                    foreach ( $users as $user ) {
-                        // Ignore hidden files/folders and system folders
-                        if ( $user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd' ) {
-                            continue;
-                        }
-                        
-                        // Check if the .pm2 folder exists in the user's home directory
-                        if ( is_dir( "/home/$user/.pm2" ) ) {
-
-                            // Restart any pm2 processes
-                            $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
-                            $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
-                        }
-                    }
-                    shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
+                    // Restart any pm2 processes
+                    $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
+                    $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
                 }
             }
-            return $args;
+            shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
         }
 
         /**
