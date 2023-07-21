@@ -40,7 +40,7 @@ if ( ! class_exists( 'NodeApp') ) {
         /**
          * Check if system has rebooted and restart apps
          */
-        public function hcpp_rebooted( $args ) {
+        public function hcpp_rebooted() {
 
             // Restart all PM2 apps for all user accounts
             $users = scandir('/home');
@@ -60,7 +60,10 @@ if ( ! class_exists( 'NodeApp') ) {
                     $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
                 }
             }
-            shell_exec( $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd ) );
+            $cmd = $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd );
+            if ( trim( $cmd ) != '' )  {
+                $hcpp->log( shell_exec( $cmd ) );
+            }
         }
 
         /**
