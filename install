@@ -8,15 +8,19 @@ then
 fi
 
 ############################################ 
-# Install NodeJS, NVM, PM2, and grunt
+# Install NVM, NodeJS, PM2, and grunt
 ############################################
 
-# First install the latest NodeJS LTS version
-curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-apt-get install -y nodejs
+# NVM and prerequisites
+apt-get install -y curl gnupg2
+curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+source ~/.bashrc
+
+# Initial install of NodeJS (20.6.1 is an LTS version)
+nvm install 20.6.1
+npm install -g npm@latest
 
 # Install node version manager, globally
-curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
 mv ~/.nvm /opt/nvm
 chmod -R 755 /opt/nvm
 export NVM_DIR="/opt/nvm"
@@ -25,21 +29,22 @@ export NVM_DIR="/opt/nvm"
 export PATH="/opt/nvm:$PATH"
 
 # Install last three NodeJS LTS versions
-nvm install 14.21.2
-nvm install 16.19.0
-nvm install 18.13.0
-nvm alias default 18.13.0
+nvm install 16.20.2
+nvm install 18.17.1
+nvm alias default 20.6.1
+
 
 # Install grunt, pm2 globally for all versions
-npm install -g grunt-cli
-npm install -g pm2
 nvm use v16
 npm install -g grunt-cli
 npm install -g pm2
-nvm use v14
+nvm use v18
 npm install -g grunt-cli
 npm install -g pm2
-nvm use v18
+nvm use v20
+npm install -g grunt-cli
+npm install -g pm2
+
 
 ############################################
 # Install templates
