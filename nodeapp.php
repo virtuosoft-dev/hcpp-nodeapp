@@ -356,9 +356,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Add app to shutdown by name
                 $cmd .= "; pm2 delete $app ";
             }
-            $cmd .= '"';
             if ( strpos( $cmd, '; pm2 delete ' ) ) {
-                $cmd .= "; pm2 save --force ";
+                $cmd .= '; pm2 save --force "';
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
