@@ -24,7 +24,8 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'priv_change_web_domain_proxy_tpl', [ $this, 'priv_change_web_domain_proxy_tpl' ] );
             $hcpp->add_action( 'pre_delete_web_domain_backend', [ $this, 'pre_delete_web_domain_backend' ] );
             $hcpp->add_action( 'priv_suspend_web_domain', [ $this, 'priv_suspend_web_domain' ] );
-            $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] );
+            $hcpp->add_action( 'priv_unsuspend_web_domain', [ $this, 'priv_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
+            $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
         }
