@@ -316,9 +316,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Add app to startup
                 $cmd .= "; pm2 start $file ";
             }
-            $cmd .= '"';
             if ( strpos( $cmd, '; pm2 start ' ) ) {
-                $cmd .= "; pm2 save --force ";
+                $cmd .= '; pm2 save --force "';
                 $args = [
                     'user' => $user,
                     'domain' => $domain,
