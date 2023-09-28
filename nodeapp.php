@@ -202,7 +202,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 $hcpp->allocate_port( $name, $user, $domain );
             }
 
-            // Throw a nodeapp event to allow other plugins allocate ports
+            // Throw a nodeapp event to allow other plugins to allocate ports
             $args = [
                 'user' => $user,
                 'domain' => $domain,
