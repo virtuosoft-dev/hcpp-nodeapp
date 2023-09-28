@@ -140,6 +140,15 @@ if ( ! class_exists( 'NodeApp') ) {
             $user = $args[0];
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+
+            // Remove prior nginx config files; duplicate location "/" will cause nginx to fail
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" );
+            }
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
+            }
+            
             $this->shutdown_apps( $nodeapp_folder );
             return $args;
         }
