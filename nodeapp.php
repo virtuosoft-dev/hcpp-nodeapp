@@ -46,7 +46,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     if (basename($target) == 'nginx.ssl.conf') {
                         if ( file_exists( dirname($target) . "/nginx.ssl.conf_nodeapp") ) {
                             $contents = file_get_contents( $target );
-                            if ( strpos( $contents, '# proxy_hide_header Upgrade;' ) === false ) continue;
+                            if ( strpos( $contents, '# proxy_hide_header Upgrade;' ) ) continue;
                             $contents = str_replace( 'proxy_hide_header Upgrade;', '# proxy_hide_header Upgrade;', $contents );
                             file_put_contents( $target, $contents );
                             $hcpp->log( "Modified $target, for proxy_hide_header Upgrade;" );
