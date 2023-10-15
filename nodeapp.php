@@ -270,6 +270,7 @@ if ( ! class_exists( 'NodeApp') ) {
 
                 // Overrite the proxy_hide_header in the SSL config file
                 $nginx .= "# Override prev. proxy_hide_header Upgrade\nadd_header Upgrade \$http_upgrade always;";
+                $args['nginx'] = $nginx;
                 $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_ssl_conf', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp", $nginx );
