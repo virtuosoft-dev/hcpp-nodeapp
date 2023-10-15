@@ -28,33 +28,6 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'priv_unsuspend_domain', [ $this, 'priv_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
-            $hcpp->add_action( 'hcpp_nginx_reload', [ $this, 'hcpp_nginx_reload' ] );
-        }
-
-        /**
-         * Comment out proxy_hide_header Upgrade; in nginx.ssl.conf files
-         * that have an accompanying nginx.ssl.conf_nodeapp file,
-         * this allows websockets to work with NodeJS apps in subfolders.
-         */
-        public function hcpp_nginx_reload( $cmd ) {
-            global $hcpp;
-            $dir = '/etc/nginx/conf.d/domains';
-            $files = scandir($dir);
-            foreach ($files as $file) {
-                if (is_link("$dir/$file")) {
-                    $target = readlink("$dir/$file");
-                    if (basename($target) == 'nginx.ssl.conf') {
-                        if ( file_exists( dirname($target) . "/nginx.ssl.conf_nodeapp") ) {
-                            $contents = file_get_contents( $target );
-                            if ( strpos( $contents, '# proxy_hide_header Upgrade;' ) !== false ) continue;
-                            $contents = str_replace( 'proxy_hide_header Upgrade;', '# proxy_hide_header Upgrade;', $contents );
-                            file_put_contents( $target, $contents );
-                            $hcpp->log( "Modified $target, for proxy_hide_header Upgrade;" );
-                        }
-                    }
-                }
-            }
-            return $cmd;
         }
 
         /**
@@ -281,6 +254,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     proxy_set_header Connection "upgrade";
                 }' . "\n";
             }
+            $nginx .= "# Override prev. proxy_hide_header Upgrade\nadd_header Upgrade \$http_upgrade always;";
 
             // Write the nginx config nodeapp subfolder file to the user's conf folder
             if ($nginx != '') {
