@@ -17,7 +17,7 @@ curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
 source ~/.bashrc
 
 # Initial install of NodeJS (20.6.1 is an LTS version)
-nvm install 20.6.1
+nvm install v20
 npm install -g npm@latest
 
 # Install node version manager, globally
@@ -29,9 +29,9 @@ export NVM_DIR="/opt/nvm"
 export PATH="/opt/nvm:$PATH"
 
 # Install last three NodeJS LTS versions
-nvm install 16.20.2
-nvm install 18.17.1
-nvm alias default 20.6.1
+nvm install v16
+nvm install v18
+nvm alias default v20
 
 
 # Install grunt, pm2 globally for all versions
