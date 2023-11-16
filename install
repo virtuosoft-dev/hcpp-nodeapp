@@ -16,7 +16,7 @@ apt-get install -y curl gnupg2
 curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
 source ~/.bashrc
 
-# Initial install of NodeJS (20.6.1 is an LTS version)
+# Initial install of NodeJS (vrsion 20 is an LTS version)
 nvm install v20
 npm install -g npm@latest
 
