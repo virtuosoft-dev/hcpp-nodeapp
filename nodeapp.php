@@ -43,6 +43,17 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function hcpp_rebooted() {
 
+            // Wait up to 60 additional seconds for MySQL to start
+            $i = 0;
+            while ( $i < 60 ) {
+                $i++;
+                $mysql = shell_exec( 'systemctl is-active mysql' );
+                if ( trim( $mysql ) == 'active' ) {
+                    break;
+                }
+                sleep( 1 );
+            }
+
             // Restart all PM2 apps for all user accounts
             $users = scandir('/home');
             global $hcpp;
