@@ -107,7 +107,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     ];
                     $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
                     $nodeapp_folder = $args['nodeapp_folder'];
-                    shell_exec( "chmod 751 " . escapeshellarg( $nodeapp_folder ) );
+                    chmod( $nodeapp_folder, 0751 );
 
                     // Install dependencies
                     $cmd = 'runuser -s /bin/bash -l ' . $user . ' -c "cd \"' . $nodeapp_folder . '\" && export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && npm install"';
