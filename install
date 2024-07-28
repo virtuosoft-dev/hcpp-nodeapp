@@ -24,7 +24,7 @@ export NVM_DIR="/opt/nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 export PATH="/opt/nvm:$PATH"
 
-# Initial install of NodeJS (vrsion 20 is an LTS version)
+# Initial install of NodeJS (version 20 is an LTS version)
 nvm install v20
 npm install -g npm@latest
 
