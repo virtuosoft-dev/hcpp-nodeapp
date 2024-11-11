@@ -313,8 +313,9 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function random_chars( $length = 10, $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890' ) {
             $string = '';
+            $max_index = strlen( $chars ) - 1;
             for ( $i = 0; $i < $length; $i++ ) {
-                $string .= $chars[rand( 0, strlen( $chars ) - 1 )];
+                $string .= $chars[random_int( 0, $max_index )]; // random_int is more crypto secure
             }
             return $string;
         }
