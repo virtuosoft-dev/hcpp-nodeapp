@@ -25,13 +25,14 @@ export NVM_DIR="/opt/nvm"
 export PATH="/opt/nvm:$PATH"
 
 # Initial install of NodeJS (version 20 is an LTS version)
-nvm install v20
+nvm install v22
 npm install -g npm@latest
 
 # Install last three NodeJS LTS versions
 nvm install v16
 nvm install v18
-nvm alias default v20
+nvm install v20
+nvm alias default v22
 
 
 # Install grunt, pm2 globally for all versions
@@ -42,6 +43,9 @@ nvm use v18
 npm install -g grunt-cli
 npm install -g pm2
 nvm use v20
+npm install -g grunt-cli
+npm install -g pm2
+nvm use v22
 npm install -g grunt-cli
 npm install -g pm2
 
