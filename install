@@ -1,19 +1,22 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
-
 if [[ -d "/opt/nvm" && -f "/usr/local/hestia/data/templates/web/nginx/NodeApp.stpl" ]]
 then
     echo "NodeApp appears to already be installed"
     exit
 fi
 
-############################################ 
-# Install NVM, NodeJS, PM2, and grunt
-############################################
+# ############################################ 
+# # Install NVM, NodeJS, PM2, and grunt
+# ############################################
 
-# NVM and prerequisites
+# Remove existing NodeJS installation
+apt remove --purge nodejs -y
+
+# Get prerequisites and latest NVM version
 apt-get install -y curl gnupg2
-curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+LATEST_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep '"tag_name":' | cut -d '"' -f 4)
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/${LATEST_VERSION}/install.sh | bash
 source ~/.bashrc
 
 # Install node version manager, globally
@@ -33,7 +36,6 @@ nvm install v16
 nvm install v18
 nvm install v20
 nvm alias default v22
-
 
 # Install grunt, pm2 globally for all versions
 nvm use v16
