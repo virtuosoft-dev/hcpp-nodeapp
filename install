@@ -10,8 +10,8 @@ fi
 # # Install NVM, NodeJS, PM2, and grunt
 # ############################################
 
-# Remove existing NodeJS installation
-apt remove --purge nodejs -y
+# # Remove existing NodeJS installation
+# apt remove --purge nodejs -y
 
 # Get prerequisites and latest NVM version
 apt-get install -y curl gnupg2
