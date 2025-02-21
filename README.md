@@ -4,6 +4,7 @@ A plugin for Hestia Control Panel (via [hestiacp-pluginable](https://github.com/
 * Gallium v16
 * Hydrogen v18
 * Iron v20
+* Jod v22
 
 &nbsp;
 ## Installation

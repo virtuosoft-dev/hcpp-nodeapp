@@ -21,9 +21,10 @@ touch .restart/restart
 You can change the version of the NodeJS runtime engine by supplying a complete or partial version number in the file `.nvmrc` (i.e. "v18" or "current" for the latest NodeJS version). Supported NodeJS versions are:
 
 ```
-v14.21.1
-v16.18.1
-v18.12.1
+v16.20.2
+v18.20.7
+v20.18.3
+v22.14.0
 ```
 
 ## Create Project
