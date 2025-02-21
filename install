@@ -13,8 +13,8 @@ fi
 # # Remove existing NodeJS installation
 # apt remove --purge nodejs -y
 
-# Get prerequisites and latest NVM version
-apt-get install -y curl gnupg2
+# Get prerequisites, latest NVM version, and build tools if we need to compile from source
+apt-get install -y curl build-essential gnupg2
 LATEST_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep '"tag_name":' | cut -d '"' -f 4)
 curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/${LATEST_VERSION}/install.sh | bash
 source ~/.bashrc
