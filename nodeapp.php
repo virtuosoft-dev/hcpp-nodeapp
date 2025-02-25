@@ -1,11 +1,12 @@
 <?php
 /**
  * Extend the HestiaCP Pluginable object with our NodeApp object for
- * allocating NodeJS app ports and starting & stopping apps via PM2
- * and NVM for every .config.js file present.
+ * allocating NodeJS app ports and starting & stopping apps via PM2,
+ * use multiple NodeJS versions via NVM, and auto-scan for .config.js
+ * files; also adds PM2 NodeJS process list to the HestiaCP UI.
  * 
- * @version 1.0.0
- * @license GPL-3.0
+ * @author Virtuosoft/Stephen J. Carnam
+ * @license AGPL-3.0, for other licensing options contact support@virtuosoft.com
  * @link https://github.com/virtuosoft-dev/hcpp-nodeapp
  * 
  */
@@ -296,22 +297,6 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
         }
-
-//         /**
-//          * Generate random alpha numeric for passwords, seeds, etc.
-//          *
-//          * @param int $length The length of characters to return.
-//          * @param string $chars The set of possible characters to choose from.
-//          * @return string The resulting randomly generated string.
-//          */
-//         public function random_chars( $length = 10, $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890' ) {
-//             $string = '';
-//             $max_index = strlen( $chars ) - 1;
-//             for ( $i = 0; $i < $length; $i++ ) {
-//                 $string .= $chars[random_int( 0, $max_index )]; // random_int is more crypto secure
-//             }
-//             return $string;
-//         }
 
         /**
          * Scan the nodeapp folder for .config.js files and start the app for each
