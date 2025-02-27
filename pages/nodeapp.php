@@ -96,7 +96,7 @@
 					<ul class="units-table-row-actions">
 						<li class="units-table-row-action shortcut-enter" data-key-action="href">
 							<a class="units-table-row-action-link" href="?p=nodeapp&action=log&pm_id=<?= $pm_id; ?>" target="_blank" title="Log">
-								<i class="fas fa-external-link icon-blue"></i>
+								<i class="fas fa-list icon-blue"></i>
 								<span class="u-hide-desktop">Log</span>
 							</a>
 						</li>
