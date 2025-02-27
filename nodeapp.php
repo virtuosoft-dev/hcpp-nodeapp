@@ -25,6 +25,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
             $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
             $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
+            $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
             $hcpp->add_action( 'list_web_xpath', [ $this, 'list_web_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
@@ -171,6 +172,20 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
+        }
+
+        /**
+         * Process the PM2 list command request
+         */
+        public function hcpp_invoke_plugin( $args ) {
+            if ( $args[0] == 'nodeapp_pm2_jlist' ) {
+
+                // Get the sanitized username
+                $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] );
+                global $hcpp;
+                echo $hcpp->runuser( $username, 'pm2 jlist' );
+            }
+            return $args;
         }
 
         /**
@@ -436,6 +451,22 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
             return $configFiles;
+        }
+
+        /**
+         * Get the list of PM2 processes for the given user
+         * 
+         * @param string $user The username to get the PM2 process list for
+         * @return array The list of PM2 processes for the given user
+         */
+        public function get_pm2_list() {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $username), true );
+		    return $list;
         }
     }
     new NodeApp();
