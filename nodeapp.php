@@ -29,7 +29,8 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'list_web_xpath', [ $this, 'list_web_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
-            $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );         
+            $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
+            $hcpp->add_custom_page( 'nodeapplog', __DIR__ . '/pages/nodeapplog.php' );
         }
 
         /**
