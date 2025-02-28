@@ -15,222 +15,6 @@ if ( ! class_exists( 'NodeApp') ) {
     class NodeApp {
 
         /**
-         * Constructor, listen for the priv_change_web_domain_proxy_tpl event
-         */
-        public function __construct() {
-            global $hcpp;
-            $hcpp->nodeapp = $this;
-            $hcpp->add_action( 'v_change_web_domain_proxy_tpl', [ $this, 'v_change_web_domain_proxy_tpl'] );
-            $hcpp->add_action( 'v_delete_web_domain_backend', [ $this, 'v_delete_web_domain_backend' ] );
-            $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
-            $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
-            $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
-            $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
-            $hcpp->add_action( 'list_web_xpath', [ $this, 'list_web_xpath' ] );
-            $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
-            $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
-            $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
-            $hcpp->add_custom_page( 'nodeapplog', __DIR__ . '/pages/nodeapplog.php' );
-        }
-
-        /**
-         * Modify runuser to incorporate NVM
-         */
-        public function hcpp_runuser( $cmd ) {
-            $cmd = 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && ' . $cmd;
-            return $cmd;
-        }
-
-        /**
-         * Check if system has rebooted and restart apps
-         */
-        public function hcpp_rebooted() {
-
-            // Wait up to 60 additional seconds for MySQL to start
-            $i = 0;
-            while ( $i < 60 ) {
-                $i++;
-                $mysql = shell_exec( 'systemctl is-active mysql' );
-                if ( trim( $mysql ) == 'active' ) {
-                    break;
-                }
-                sleep( 1 );
-            }
-
-            // Restart all PM2 apps for all user accounts
-            $users = scandir('/home');
-            global $hcpp;
-            $cmd = '';
-            foreach ( $users as $user ) {
-                // Ignore hidden files/folders and system folders
-                if ( $user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd' ) {
-                    continue;
-                }
-                
-                // Check if the .pm2 folder exists in the user's home directory
-                if ( is_dir( "/home/$user/.pm2" ) ) {
-
-                    // Restart any pm2 processes
-                    $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
-                    $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
-                }
-            }
-            $cmd = $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd );
-            if ( trim( $cmd ) != '' )  {
-                $hcpp->log( shell_exec( $cmd ) );
-            }
-        }
-
-        /**
-         * Add the PM2 process list button to the HestiaCP UI
-         */
-        public function list_web_xpath( $xpath ) {
-
-            // Locate the 'Add Web Domain' button
-            $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
-
-            if ( $addWebButton ) {
-
-                // Create a new button element
-                $newButton = $xpath->document->createElement( 'a' );
-                $newButton->setAttribute( 'href', '?p=nodeapp' );
-                $newButton->setAttribute( 'class', 'button button-secondary' );
-                $newButton->setAttribute( 'title', 'NodaApps' );
-
-                // Create the icon element
-                $icon = $xpath->document->createElement('span', '&#11042;');
-                $icon->setAttribute('style', 'font-size:x-large;color:green;margin:-2px 4px 0 0;');
-
-                // Create the text node
-                $text = $xpath->document->createTextNode( 'NodeApps' );
-
-                // Append the icon and text to the new button
-                $newButton->appendChild( $icon );
-                $newButton->appendChild( $text );
-
-                // Insert the new button next to the existing one
-                $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
-            }
-            return $xpath;
-        }
-
-        /**
-         * On proxy template change, copy basic nodeapp, allocate ports, and start apps
-         */
-        public function v_change_web_domain_proxy_tpl( $args ) {
-            global $hcpp;
-            $user = $args[0];
-            $domain = $args[1];
-            $proxy = $args[2];
-            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            
-            if ( $proxy == 'NodeApp' ) {
-
-                if ( !is_dir( $nodeapp_folder) ) {
-
-                    // Copy initial nodeapp folder
-                    $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
-                    $args = [
-                        'user' => $user,
-                        'domain' => $domain,
-                        'proxy' => $proxy,
-                        'nodeapp_folder' => $nodeapp_folder
-                    ];
-                    $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
-                    $nodeapp_folder = $args['nodeapp_folder'];
-                    chmod( $nodeapp_folder, 0751 );
-
-                    // Install dependencies
-                    $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
-                    $args['cmd'] = $cmd;
-                    $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
-                    $hcpp->runuser( $user, $args['cmd'] );
-                }
-
-                // Shutdown stray apps and startup root and subfolder apps
-                $this->shutdown_apps( $nodeapp_folder );
-                $this->allocate_ports( $nodeapp_folder );
-                $this->generate_nginx_files( $nodeapp_folder );
-                $this->startup_apps( $nodeapp_folder );
-            }else {
-
-                // Shutdown stray apps and only startup subfolder apps
-                if ( is_dir( $nodeapp_folder) ) {
-                    $this->shutdown_apps( $nodeapp_folder );
-                    $this->allocate_ports( $nodeapp_folder );
-                    $this->generate_nginx_files( $nodeapp_folder, false );
-                    $this->startup_apps( $nodeapp_folder, false );
-                }
-            }
-        }
-
-        /**
-         * On domain delete, shutdown apps
-         */
-        public function v_delete_web_domain_backend( $args ) {
-            global $hcpp;
-            $user = $args[0];
-            $domain = $args[1];
-            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            $this->shutdown_apps( $nodeapp_folder );
-        }
-
-        /**
-         * Process the PM2 list command request
-         */
-        public function hcpp_invoke_plugin( $args ) {
-            if ( $args[0] == 'nodeapp_pm2_jlist' ) {
-
-                // Get the sanitized username
-                $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] );
-                global $hcpp;
-                echo $hcpp->runuser( $username, 'pm2 jlist' );
-            }
-            return $args;
-        }
-
-        /**
-         * On domain suspend, shutdown apps
-         */
-        public function v_suspend_web_domain( $args ) {
-            global $hcpp;
-            $user = $args[0];
-            $domain = $args[1];
-            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-
-            // Remove prior nginx config files; duplicate location "/" will cause nginx to fail
-            if ( file_exists( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" ) ) {
-                unlink( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" );
-            }
-            if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
-                unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
-            }
-            
-            $this->shutdown_apps( $nodeapp_folder );
-            return $args;
-        }
-
-        /**
-         * On domain unsuspend, startup apps
-         */
-        public function v_unsuspend_domain( $args ) {
-            global $hcpp;
-            $user = $args[0];
-            $domain = $args[1];
-            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            if ( is_dir( $nodeapp_folder) ) {
-                $proxy = $hcpp->run("v-list-web-domain $user $domain json");
-                if ( $proxy != NULL ) {
-                   $proxy = $proxy[$domain]["PROXY"];
-                   $this->allocate_ports( $nodeapp_folder );
-                   $this->generate_nginx_files( $nodeapp_folder, ( $proxy == "NodeApp" ) );
-                   $this->startup_apps( $nodeapp_folder, ( $proxy == "NodeApp" ) );
-                }    
-            }
-            return $args;
-        }
-
-        /**
          * Scan the nodeapp folder for .config.js files and allocate a port for each
          */
         public function allocate_ports( $nodeapp_folder ) {
@@ -266,6 +50,57 @@ if ( ! class_exists( 'NodeApp') ) {
                 'nodeapp_folder' => $nodeapp_folder
             ];
             $hcpp->do_action( 'nodeapp_ports_allocated', $args );
+        }
+
+        /**
+         * Constructor, listen for the priv_change_web_domain_proxy_tpl event
+         */
+        public function __construct() {
+            global $hcpp;
+            $hcpp->nodeapp = $this;
+            $hcpp->add_action( 'v_change_web_domain_proxy_tpl', [ $this, 'v_change_web_domain_proxy_tpl'] );
+            $hcpp->add_action( 'v_delete_web_domain_backend', [ $this, 'v_delete_web_domain_backend' ] );
+            $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
+            $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
+            $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
+            $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
+            $hcpp->add_action( 'list_web_xpath', [ $this, 'list_web_xpath' ] );
+            $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
+            $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
+            $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
+            $hcpp->add_custom_page( 'nodeapplog', __DIR__ . '/pages/nodeapplog.php' );
+        }
+
+        /**
+         * Gather a list of all valid PM2 configuration files that allocate ports from the given folder
+         */
+        public function get_config_files( $dir ) {
+            global $hcpp;
+            $configFiles = array();
+            $files = scandir( $dir );
+            foreach ( $files as $file ) {
+                if ( $file == '.' || $file == '..' ) continue;
+                $path = $dir . '/' . $file;
+                if ( is_dir( $path ) && $file != "node_modules" ) {
+                    $configFiles = array_merge( $configFiles, $this->get_config_files( $path ) );
+                } else if ( preg_match('/\.config\.js$/', $file ) ) {
+
+                    // Sanitize the name of the app to prevent Nginx injection
+                    if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
+                    $file = explode( '/', $file );
+                    $file = end( $file );
+                    $name = str_replace( '.config.js', '', $file );
+                    $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
+                    if ( $path == $dir . '/' . $name . '.config.js' ) {
+
+                        // Check for hestia pm2 port allocating validity
+                        if ( file_exists( $path ) && strpos( file_get_contents( $path ), '/usr/local/hestia') !== false ) {
+                            $configFiles[] = $path;
+                        }
+                    }
+                }
+            }
+            return $configFiles;
         }
 
         /**
@@ -350,6 +185,170 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Get the list of PM2 processes for the given user
+         * 
+         * @param string $user The username to get the PM2 process list for
+         * @return array The list of PM2 processes for the given user
+         */
+        public function get_pm2_list() {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $username), true );
+		    return $list;
+        }
+        
+        /**
+         * Process the PM2 list command request
+         */
+        public function hcpp_invoke_plugin( $args ) {
+            global $hcpp;
+            $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
+            switch ( $args[0] ) {
+                case 'nodeapp_pm2_jlist':
+                    echo $hcpp->runuser( $username, 'pm2 jlist' );
+                    break;
+
+                case 'nodeapp_stop_pm2_ids':
+                    try {
+                        $pm2_ids = json_decode( $args[2], true );
+                    }catch( Exception $e ) {
+                        $pm2_ids = [];
+                    }
+                    $cmd = '';
+                    foreach( $pm2_ids as $id ) {
+                        $cmd .= 'pm2 stop ' . $id . '; pm2 reset ' . $id . '; ';
+                    }
+                    $cmd .= 'pm2 save --force';
+                    $hcpp->runuser( $username, $cmd );
+                    break;
+
+                case 'nodeapp_restart_pm2_ids':
+                    try {
+                        $pm2_ids = json_decode( $args[2], true );
+                    }catch( Exception $e ) {
+                        $pm2_ids = [];
+                    }
+                    
+                    // Restart via config.js filename; find by pm2_id
+                    $list = json_decode( $hcpp->runuser( $username, 'pm2 jlist' ), true );
+                    $cmd = '';
+                    foreach( $pm2_ids as $id ) {
+                        foreach( $list as $app ) {
+                            if ( $app['pm_id'] == $id ) {
+                                $app_config_js = $app['pm2_env']['pm_exec_path'];
+                                $app_config_js = preg_replace( '/\.js$/', '.config.js', $app_config_js );
+                                $cmd .= 'pm2 restart ' . $app_config_js . '; ';
+                            }
+                        }
+                    }
+                    $cmd .= 'pm2 save --force';
+                    $hcpp->runuser( $username, $cmd );
+                    break;
+                    
+            }
+            return $args;
+        }
+        
+        /**
+         * Modify runuser to incorporate NVM
+         */
+        public function hcpp_runuser( $cmd ) {
+            $cmd = 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && ' . $cmd;
+            return $cmd;
+        }
+
+        /**
+         * Check if system has rebooted and restart apps
+         */
+        public function hcpp_rebooted() {
+
+            // Wait up to 60 additional seconds for MySQL to start
+            $i = 0;
+            while ( $i < 60 ) {
+                $i++;
+                $mysql = shell_exec( 'systemctl is-active mysql' );
+                if ( trim( $mysql ) == 'active' ) {
+                    break;
+                }
+                sleep( 1 );
+            }
+
+            // Restart all PM2 apps for all user accounts
+            $users = scandir('/home');
+            global $hcpp;
+            $cmd = '';
+            foreach ( $users as $user ) {
+                // Ignore hidden files/folders and system folders
+                if ( $user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd' ) {
+                    continue;
+                }
+                
+                // Check if the .pm2 folder exists in the user's home directory
+                if ( is_dir( "/home/$user/.pm2" ) ) {
+
+                    // Restart any pm2 processes
+                    $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
+                    $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
+                }
+            }
+            $cmd = $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd );
+            if ( trim( $cmd ) != '' )  {
+                $hcpp->log( shell_exec( $cmd ) );
+            }
+        }
+
+        /**
+         * Add the PM2 process list button to the HestiaCP UI
+         */
+        public function list_web_xpath( $xpath ) {
+
+            // Locate the 'Add Web Domain' button
+            $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
+
+            if ( $addWebButton ) {
+
+                // Create a new button element
+                $newButton = $xpath->document->createElement( 'a' );
+                $newButton->setAttribute( 'href', '?p=nodeapp' );
+                $newButton->setAttribute( 'class', 'button button-secondary' );
+                $newButton->setAttribute( 'title', 'NodaApps' );
+
+                // Create the icon element
+                $icon = $xpath->document->createElement('span', '&#11042;');
+                $icon->setAttribute('style', 'font-size:x-large;color:green;margin:-2px 4px 0 0;');
+
+                // Create the text node
+                $text = $xpath->document->createTextNode( 'NodeApps' );
+
+                // Append the icon and text to the new button
+                $newButton->appendChild( $icon );
+                $newButton->appendChild( $text );
+
+                // Insert the new button next to the existing one
+                $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
+            }
+            return $xpath;
+        }
+
+        /**
+         * Restart the PM2 apps for the given user by ids.
+         * 
+         * @param array $pm2_ids The list of PM2 process ids to restart
+         */
+        public function restart_pm2_ids( $pm2_ids) {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+            $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $username . ' ' . $pm2_ids, true ) );
+        }
+
+        /**
          * Scan the nodeapp folder for .config.js files and start the app for each
          */
         public function startup_apps( $nodeapp_folder, $inc_root = true ) {
@@ -382,6 +381,21 @@ if ( ! class_exists( 'NodeApp') ) {
                 $args = $hcpp->do_action( 'nodeapp_startup_services', $args );
                 $hcpp->runuser( $user, $args['cmd'] );
             }
+        }
+
+        /**
+         * Stop the PM2 apps for the given user by ids.
+         * 
+         * @param array $pm2_ids The list of PM2 process ids to stop
+         */
+        public function stop_pm2_ids( $pm2_ids) {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+            $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $username . ' ' . $pm2_ids, true ) );
         }
 
         /**
@@ -423,51 +437,105 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
-         * Gather a list of all valid PM2 configuration files that allocate ports from the given folder
+         * On proxy template change, copy basic nodeapp, allocate ports, and start apps
          */
-        public function get_config_files( $dir ) {
+        public function v_change_web_domain_proxy_tpl( $args ) {
             global $hcpp;
-            $configFiles = array();
-            $files = scandir( $dir );
-            foreach ( $files as $file ) {
-                if ( $file == '.' || $file == '..' ) continue;
-                $path = $dir . '/' . $file;
-                if ( is_dir( $path ) && $file != "node_modules" ) {
-                    $configFiles = array_merge( $configFiles, $this->get_config_files( $path ) );
-                } else if ( preg_match('/\.config\.js$/', $file ) ) {
+            $user = $args[0];
+            $domain = $args[1];
+            $proxy = $args[2];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            
+            if ( $proxy == 'NodeApp' ) {
 
-                    // Sanitize the name of the app to prevent Nginx injection
-                    if ( ! preg_match( '/\.config\.js$/', $file ) ) continue;
-                    $file = explode( '/', $file );
-                    $file = end( $file );
-                    $name = str_replace( '.config.js', '', $file );
-                    $name = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $name );
-                    if ( $path == $dir . '/' . $name . '.config.js' ) {
+                if ( !is_dir( $nodeapp_folder) ) {
 
-                        // Check for hestia pm2 port allocating validity
-                        if ( file_exists( $path ) && strpos( file_get_contents( $path ), '/usr/local/hestia') !== false ) {
-                            $configFiles[] = $path;
-                        }
-                    }
+                    // Copy initial nodeapp folder
+                    $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
+                    $args = [
+                        'user' => $user,
+                        'domain' => $domain,
+                        'proxy' => $proxy,
+                        'nodeapp_folder' => $nodeapp_folder
+                    ];
+                    $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
+                    $nodeapp_folder = $args['nodeapp_folder'];
+                    chmod( $nodeapp_folder, 0751 );
+
+                    // Install dependencies
+                    $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
+                    $args['cmd'] = $cmd;
+                    $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
+                    $hcpp->runuser( $user, $args['cmd'] );
+                }
+
+                // Shutdown stray apps and startup root and subfolder apps
+                $this->shutdown_apps( $nodeapp_folder );
+                $this->allocate_ports( $nodeapp_folder );
+                $this->generate_nginx_files( $nodeapp_folder );
+                $this->startup_apps( $nodeapp_folder );
+            }else {
+
+                // Shutdown stray apps and only startup subfolder apps
+                if ( is_dir( $nodeapp_folder) ) {
+                    $this->shutdown_apps( $nodeapp_folder );
+                    $this->allocate_ports( $nodeapp_folder );
+                    $this->generate_nginx_files( $nodeapp_folder, false );
+                    $this->startup_apps( $nodeapp_folder, false );
                 }
             }
-            return $configFiles;
         }
 
         /**
-         * Get the list of PM2 processes for the given user
-         * 
-         * @param string $user The username to get the PM2 process list for
-         * @return array The list of PM2 processes for the given user
+         * On domain delete, shutdown apps
          */
-        public function get_pm2_list() {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function v_delete_web_domain_backend( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            $this->shutdown_apps( $nodeapp_folder );
+        }
+
+        /**
+         * On domain suspend, shutdown apps
+         */
+        public function v_suspend_web_domain( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+
+            // Remove prior nginx config files; duplicate location "/" will cause nginx to fail
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp" );
             }
-		    global $hcpp;
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $username), true );
-		    return $list;
+            if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
+                unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
+            }
+            
+            $this->shutdown_apps( $nodeapp_folder );
+            return $args;
+        }
+
+        /**
+         * On domain unsuspend, startup apps
+         */
+        public function v_unsuspend_domain( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            if ( is_dir( $nodeapp_folder) ) {
+                $proxy = $hcpp->run("v-list-web-domain $user $domain json");
+                if ( $proxy != NULL ) {
+                   $proxy = $proxy[$domain]["PROXY"];
+                   $this->allocate_ports( $nodeapp_folder );
+                   $this->generate_nginx_files( $nodeapp_folder, ( $proxy == "NodeApp" ) );
+                   $this->startup_apps( $nodeapp_folder, ( $proxy == "NodeApp" ) );
+                }    
+            }
+            return $args;
         }
     }
     new NodeApp();
