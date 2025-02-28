@@ -31,7 +31,6 @@
 		</div>
 		<div class="toolbar-right">
 			<form x-data="" x-bind="BulkEdit" action="?p=nodeapp&action=bulk" method="post">
-				<!-- <input type="hidden" name="token" value="cb13cab8924d16f98ed1851fdd4a7a35"> -->
 				<select class="form-select" name="action">
 					<option value="">Apply to selected</option>
 					<option value="stop">Stop</option>

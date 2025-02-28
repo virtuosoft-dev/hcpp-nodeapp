@@ -201,6 +201,19 @@ if ( ! class_exists( 'NodeApp') ) {
         }
         
         /**
+         * Get the log for the given PM2 process under the given user
+         */
+        public function get_pm2_log( $pm2_id ) {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+		    $log = $hcpp->run("v-invoke-plugin nodeapp_pm2_log " . $username . ' ' . $pm2_id );
+            return $log;
+        }
+
+        /**
          * Process the PM2 list command request
          */
         public function hcpp_invoke_plugin( $args ) {
@@ -246,6 +259,12 @@ if ( ! class_exists( 'NodeApp') ) {
                     }
                     $cmd .= 'pm2 save --force';
                     $hcpp->runuser( $username, $cmd );
+                    break;
+
+                case 'nodeapp_pm2_log':
+                    $pm2_id = $args[2];
+                    $pm2_id = filter_var( $pm2_id, FILTER_SANITIZE_NUMBER_INT );
+                    echo $hcpp->runuser( $username, 'pm2 logs --lines 4096 --nostream --raw ' . $pm2_id );
                     break;
                     
             }
