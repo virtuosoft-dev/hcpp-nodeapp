@@ -13,7 +13,7 @@
 </div>
 <!-- End toolbar -->
 <div class="container">
-	<textarea class="form-control" style="width: 100%; height: 50vh; overflow-y: scroll;" readonly><?php 
+	<textarea id="logTextarea" class="form-control" style="width: 100%; height: 50vh; overflow-y: scroll;" readonly><?php 
 			$pm2_id = $_GET['pm2_id'];
 			$pm2_id = filter_var($pm2_id, FILTER_SANITIZE_NUMBER_INT);
 			$pm2_log = $hcpp->nodeapp->get_pm2_log($pm2_id);
