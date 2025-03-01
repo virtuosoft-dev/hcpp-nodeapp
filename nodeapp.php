@@ -274,9 +274,11 @@ if ( ! class_exists( 'NodeApp') ) {
         /**
          * Modify runuser to incorporate NVM
          */
-        public function hcpp_runuser( $cmd ) {
+        public function hcpp_runuser( $args ) {
+            $cmd = $args[1];
             $cmd = 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && ' . $cmd;
-            return $cmd;
+            $args[1] = $cmd;
+            return $args;
         }
 
         /**
