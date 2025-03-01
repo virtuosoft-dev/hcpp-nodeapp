@@ -2,8 +2,9 @@
 /**
  * Plugin Name: NodeApp
  * Plugin URI: https://github.com/virtuosoft-dev/hcpp-nodeapp
- * Description: NodeApp is a plugin for HestiaCP that allows you to easily host NodeJS applications.
- * Version: 1.0.0
+ * Description: Host NodeJS applications in HestiaCP
+ * Author: Virtuosoft/Stephen J. Carnam
+ * License AGPL-3.0, for other licensing options contact support@virtuosoft.com
  */
 
 // Register the install and uninstall scripts
