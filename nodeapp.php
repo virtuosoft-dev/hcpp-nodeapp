@@ -409,7 +409,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * 
          * @param array $pm2_ids The list of PM2 process ids to stop
          */
-        public function stop_pm2_ids( $pm2_ids) {
+        public function stop_pm2_ids( $pm2_ids ) {
             $username = $_SESSION["user"];
             if ($_SESSION["look"] != "") {
                 $username = $_SESSION["look"];
