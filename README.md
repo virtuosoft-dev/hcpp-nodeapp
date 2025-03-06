@@ -1,7 +1,7 @@
 # hcpp-nodeapp
 A plugin for Hestia Control Panel (via [hestiacp-pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable)) that enables hosting generic NodeJS based applications with control via [PM2 (Process Manager)](https://pm2.keymetrics.io). With this plugin installed, user accounts can host their own NodeJS applications. A simple [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html) is included as the default NodeApp application. [NVM (NodeJS Version Manager)](https://github.com/nvm-sh/nvm) is also included and the default PM2 configuration file will automatically select the proper NodeJS version based on the simple .nvmrc file. 
 
-Version 2.0.0 now includes PM2 UI within HestiaCP that lists all NodeApps for a given user account under the Web tab (see #1 in screenshot below). Additional controls have been added to allow for Start, Stop, and Restart with bulk actions and viewing of the log output for each NodeApp process (see #2 in screenshot below).
+Version 2.0.0 now includes a (PM2 based) process list UI within HestiaCP that lists all NodeApps for a given user account under the Web tab (see #1 in screenshot below). Additional controls have been added to allow for Start, Stop, and Restart with bulk actions and viewing of the log output for each NodeApp process (see #2 in screenshot below).
 
 <br><img src='images/nodeapp-pm2.jpg' width='100%'><br>
 <sub>Figure 1 - NodeApp process list, control, and logs</sub>
