@@ -57,7 +57,6 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function __construct() {
             global $hcpp;
-            $hcpp->nodeapp = $this;
             $hcpp->add_action( 'v_change_web_domain_proxy_tpl', [ $this, 'v_change_web_domain_proxy_tpl'] );
             $hcpp->add_action( 'v_delete_web_domain_backend', [ $this, 'v_delete_web_domain_backend' ] );
             $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
@@ -559,5 +558,6 @@ if ( ! class_exists( 'NodeApp') ) {
             return $args;
         }
     }
-    new NodeApp();
+    global $hcpp;
+    $hcpp->register_plugin( NodeApp::class );
 }
