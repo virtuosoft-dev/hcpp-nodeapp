@@ -64,7 +64,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
             $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
             $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
-            $hcpp->add_action( 'list_web_xpath', [ $this, 'list_web_xpath' ] );
+            $hcpp->add_action( 'hcpp_list_web_xpath', [ $this, 'hcpp_list_web_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
             $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
@@ -324,7 +324,7 @@ if ( ! class_exists( 'NodeApp') ) {
         /**
          * Add the PM2 process list button to the HestiaCP UI
          */
-        public function list_web_xpath( $xpath ) {
+        public function hcpp_list_web_xpath( $xpath ) {
 
             // Locate the 'Add Web Domain' button
             $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
