@@ -325,30 +325,39 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function hcpp_list_web_xpath( $xpath ) {
 
-            // Locate the 'Add Web Domain' button
-            $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
+            // Check that user has bash shell access needed for PM2
+            global $hcpp;
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+            $detail = $hcpp->run( "v-list-user $username json" );
+            if ( isset( $detail[$username]['SHELL'] ) && $detail[$username]['SHELL'] == 'bash' ) {
+                // Locate the 'Add Web Domain' button
+                $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
 
-            if ( $addWebButton ) {
+                if ( $addWebButton ) {
 
-                // Create a new button element
-                $newButton = $xpath->document->createElement( 'a' );
-                $newButton->setAttribute( 'href', '?p=nodeapp' );
-                $newButton->setAttribute( 'class', 'button button-secondary' );
-                $newButton->setAttribute( 'title', 'NodaApps' );
+                    // Create a new button element
+                    $newButton = $xpath->document->createElement( 'a' );
+                    $newButton->setAttribute( 'href', '?p=nodeapp' );
+                    $newButton->setAttribute( 'class', 'button button-secondary' );
+                    $newButton->setAttribute( 'title', 'NodaApps' );
 
-                // Create the icon element
-                $icon = $xpath->document->createElement('span', '&#11042;');
-                $icon->setAttribute('style', 'font-size:x-large;color:green;margin:-2px 4px 0 0;');
+                    // Create the icon element
+                    $icon = $xpath->document->createElement('span', '&#11042;');
+                    $icon->setAttribute('style', 'font-size:x-large;color:green;margin:-2px 4px 0 0;');
 
-                // Create the text node
-                $text = $xpath->document->createTextNode( 'NodeApps' );
+                    // Create the text node
+                    $text = $xpath->document->createTextNode( 'NodeApps' );
 
-                // Append the icon and text to the new button
-                $newButton->appendChild( $icon );
-                $newButton->appendChild( $text );
+                    // Append the icon and text to the new button
+                    $newButton->appendChild( $icon );
+                    $newButton->appendChild( $text );
 
-                // Insert the new button next to the existing one
-                $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
+                    // Insert the new button next to the existing one
+                    $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
+                }
             }
             return $xpath;
         }
