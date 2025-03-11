@@ -70,8 +70,8 @@ the NodeApp. Developers can hook and implement their own NodeApp using these act
 * **nodeapp_install_dependencies** - *occurs before `"npm install"`, allows filtering the command.*
 * **nodeapp_startup_services** - *occurs before `"pm2 start app.config.js"`, allows filtering the command.*
 * **nodeapp_shutdown_services** - *occurs before `"pm2 delete app.config.js"`, allows filtering the command.*
-* **nodeapp_subfolder_nginx_conf** - *occurs before writing Nginx conf file for subfolder app hosting.*
-* **nodeapp_subfolder_nginx_ssl_conf** - *occurs before writing Nginx SSL conf file for subfolder app hosting.*
+* **nodeapp_write_nginx_conf** - *occurs before writing nginx.conf_nodeapp file for app hosting.*
+* **nodeapp_write_nginx_ssl_conf** - *occurs before writing nginx.ssl.conf_nodeapp file for app hosting.*
 * **nodeapp_resurrect_apps** - *occurs after system reboot and issues the command to restart PM2 apps.*
 * **nodeapp_xpath** - *occurs when viewing the NodeApp process list.*
 * **nodeapp_html** - *occurs when viewing the NodeApp process list.*

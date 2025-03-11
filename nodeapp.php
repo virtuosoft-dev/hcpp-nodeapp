@@ -19,6 +19,7 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function allocate_ports( $nodeapp_folder ) {
             global $hcpp;
+            $hcpp->log( "allocate_ports: $nodeapp_folder" );
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
@@ -30,7 +31,7 @@ if ( ! class_exists( 'NodeApp') ) {
 
             // Allocate a port for each .config.js file found
             if ( ! is_dir( $nodeapp_folder ) ) return;
-            $files = $this->get_config_files( $nodeapp_folder );          
+            $files = $this->get_config_files( $nodeapp_folder );
             foreach($files as $file) {
 
                 // Get the name of the app from the filename
@@ -121,6 +122,21 @@ if ( ! class_exists( 'NodeApp') ) {
             if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
                 unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
             }
+
+            // Write port variables in nginx.hsts.conf_ports and nginx.forcessl.conf_ports
+            $file = "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports";
+            if ( file_exists( $file ) ) {
+                $content = "include /usr/local/hestia/data/hcpp/ports/$user/$domain.ports;";
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports", $content );
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports", $content );
+            }else{
+                if ( file_exists( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" ) ) {
+                    unlink( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" );
+                }
+                if ( file_exists( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" ) ) {
+                    unlink( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" );
+                }
+            }
             
             // Generate new nodeapp nginx config files
             $nginx = '';
@@ -154,32 +170,19 @@ if ( ! class_exists( 'NodeApp') ) {
                     'nginx' => $nginx
                 ];
 
-                // Allow other plugins to modify the subfolder nginx config files
-                $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_conf', $args );
+                // Allow other plugins to modify nginx conf_nodeapp files
+                $args = $hcpp->do_action( 'nodeapp_write_nginx_conf', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.conf_nodeapp", $nginx );
-
+                $hcpp->log("Line 176 of nodeapp.php");
+                
                 // Overrite the proxy_hide_header in the SSL config file
                 $nginx .= "# Override prev. proxy_hide_header Upgrade\nadd_header Upgrade \$http_upgrade always;";
                 $args['nginx'] = $nginx;
-                $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_ssl_conf', $args );
+                $args = $hcpp->do_action( 'nodeapp_write_nginx_ssl_conf', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp", $nginx );
-            }
-
-            // Include port variables in nginx.hsts.conf_ports and nginx.forcessl.conf_ports
-            $file = "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports";
-            if ( file_exists( $file ) ) {
-                $content = "include /usr/local/hestia/data/hcpp/ports/$user/$domain.ports;";
-                file_put_contents( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports", $content );
-                file_put_contents( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports", $content );
-            }else{
-                if ( file_exists( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" ) ) {
-                    unlink( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" );
-                }
-                if ( file_exists( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" ) ) {
-                    unlink( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" );
-                }
+                $hcpp->log("Line 184 of nodeapp.php");
             }
         }
 
@@ -484,7 +487,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $proxy = $args[2];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
 
-            if ( !is_dir( $nodeapp_folder) ) {
+            if ( !is_dir( $nodeapp_folder) && $proxy == 'NodeApp' ) {
 
                 // Copy initial nodeapp folder
                 $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
@@ -508,8 +511,8 @@ if ( ! class_exists( 'NodeApp') ) {
             // Shutdown stray apps and startup root and/or subfolder apps
             $this->shutdown_apps( $nodeapp_folder );
             $this->allocate_ports( $nodeapp_folder );
-            $this->generate_nginx_files( $nodeapp_folder, $proxy == 'NodeApp' );
-            $this->startup_apps( $nodeapp_folder,  $proxy == 'NodeApp' );
+            $this->generate_nginx_files( $nodeapp_folder, ($proxy == 'NodeApp') );
+            $this->startup_apps( $nodeapp_folder,  ($proxy == 'NodeApp') );
         }
 
         /**
