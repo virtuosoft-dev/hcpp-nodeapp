@@ -29,6 +29,7 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 
             // Allocate a port for each .config.js file found
+            if ( ! is_dir( $nodeapp_folder ) ) return;
             $files = $this->get_config_files( $nodeapp_folder );          
             foreach($files as $file) {
 
@@ -482,45 +483,33 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $proxy = $args[2];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            
-            if ( $proxy == 'NodeApp' ) {
 
-                if ( !is_dir( $nodeapp_folder) ) {
+            if ( !is_dir( $nodeapp_folder) ) {
 
-                    // Copy initial nodeapp folder
-                    $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
-                    $args = [
-                        'user' => $user,
-                        'domain' => $domain,
-                        'proxy' => $proxy,
-                        'nodeapp_folder' => $nodeapp_folder
-                    ];
-                    $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
-                    $nodeapp_folder = $args['nodeapp_folder'];
-                    chmod( $nodeapp_folder, 0751 );
+                // Copy initial nodeapp folder
+                $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
+                $args = [
+                    'user' => $user,
+                    'domain' => $domain,
+                    'proxy' => $proxy,
+                    'nodeapp_folder' => $nodeapp_folder
+                ];
+                $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
+                $nodeapp_folder = $args['nodeapp_folder'];
+                chmod( $nodeapp_folder, 0751 );
 
-                    // Install dependencies
-                    $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
-                    $args['cmd'] = $cmd;
-                    $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
-                    $hcpp->runuser( $user, $args['cmd'] );
-                }
-
-                // Shutdown stray apps and startup root and subfolder apps
-                $this->shutdown_apps( $nodeapp_folder );
-                $this->allocate_ports( $nodeapp_folder );
-                $this->generate_nginx_files( $nodeapp_folder );
-                $this->startup_apps( $nodeapp_folder );
-            }else {
-
-                // Shutdown stray apps and only startup subfolder apps
-                if ( is_dir( $nodeapp_folder) ) {
-                    $this->shutdown_apps( $nodeapp_folder );
-                    $this->allocate_ports( $nodeapp_folder );
-                    $this->generate_nginx_files( $nodeapp_folder, false );
-                    $this->startup_apps( $nodeapp_folder, false );
-                }
+                // Install dependencies
+                $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
+                $args['cmd'] = $cmd;
+                $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
+                $hcpp->runuser( $user, $args['cmd'] );
             }
+
+            // Shutdown stray apps and startup root and/or subfolder apps
+            $this->shutdown_apps( $nodeapp_folder );
+            $this->allocate_ports( $nodeapp_folder );
+            $this->generate_nginx_files( $nodeapp_folder, $proxy == 'NodeApp' );
+            $this->startup_apps( $nodeapp_folder,  $proxy == 'NodeApp' );
         }
 
         /**
