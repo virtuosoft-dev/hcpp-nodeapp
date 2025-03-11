@@ -121,7 +121,6 @@ if ( ! class_exists( 'NodeApp') ) {
                 unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
             }
             
-
             // Generate new nodeapp nginx config files
             $nginx = '';
             foreach($files as $file) {
@@ -250,8 +249,17 @@ if ( ! class_exists( 'NodeApp') ) {
                     foreach( $pm2_ids as $id ) {
                         foreach( $list as $app ) {
                             if ( $app['pm_id'] == $id ) {
-                                $app_config_js = $app['pm2_env']['pm_exec_path'];
-                                $app_config_js = preg_replace( '/\.js$/', '.config.js', $app_config_js );
+                                $folder = $app['pm2_env']['pm_cwd'];
+                                
+                                // Find the first *.config.js file in the folder using PHP
+                                $files = scandir( $folder );
+                                $app_config_js = '';
+                                foreach( $files as $file ) {
+                                    if ( preg_match( '/\.config\.js$/', $file ) ) {
+                                        $app_config_js = $folder . '/' . $file;
+                                        break;
+                                    }
+                                }
                                 $cmd .= 'pm2 restart ' . $app_config_js . '; ';
                             }
                         }
