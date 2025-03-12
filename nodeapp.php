@@ -68,6 +68,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'hcpp_list_web_xpath', [ $this, 'hcpp_list_web_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
+            $hcpp->add_action( 'v_restart_proxy', [ $this, 'v_restart_proxy'] );
             $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
             $hcpp->add_custom_page( 'nodeapplog', __DIR__ . '/pages/nodeapplog.php' );
         }
@@ -171,19 +172,20 @@ if ( ! class_exists( 'NodeApp') ) {
                 ];
 
                 // Allow other plugins to modify nginx conf_nodeapp files
-                $args = $hcpp->do_action( 'nodeapp_write_nginx_conf', $args );
+                $args = $hcpp->do_action( 'nodeapp_write_conf_nodeapp', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.conf_nodeapp", $nginx );
-                $hcpp->log("Line 176 of nodeapp.php");
                 
                 // Overrite the proxy_hide_header in the SSL config file
                 $nginx .= "# Override prev. proxy_hide_header Upgrade\nadd_header Upgrade \$http_upgrade always;";
                 $args['nginx'] = $nginx;
-                $args = $hcpp->do_action( 'nodeapp_write_nginx_ssl_conf', $args );
+                $args = $hcpp->do_action( 'nodeapp_write_ssl_conf_nodeapp', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp", $nginx );
-                $hcpp->log("Line 184 of nodeapp.php");
             }
+
+            // Queue for single nginx files modified event
+            file_put_contents("/tmp/nodeapp_nginx_modified", "$user $domain\n", FILE_APPEND);
         }
 
         /**
@@ -277,7 +279,28 @@ if ( ! class_exists( 'NodeApp') ) {
                     $pm2_id = filter_var( $pm2_id, FILTER_SANITIZE_NUMBER_INT );
                     echo $hcpp->runuser( $username, 'pm2 logs --lines 4096 --nostream --raw ' . $pm2_id );
                     break;
-                    
+
+                case 'nodeapp_nginx_modified':
+                    shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+                    break;
+
+                case 'nodeapp_debounce':
+                    if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                        $lines = file( "/tmp/nodeapp_nginx_modified" );
+
+                        // Remove any duplicate lines
+                        $lines = array_unique( $lines );
+                        $conf_folders = [];
+                        foreach( $lines as $line ) {
+                            $line = explode( ' ', $line );
+                            $user = $line[0];
+                            $domain = $line[1];
+                            $conf_folders[] = trim( "/home/$user/conf/web/$domain" );
+                        }
+                        unlink( "/tmp/nodeapp_nginx_modified" );
+                        $conf_folders = $hcpp->do_action( "nodeapp_nginx_confs_written", $conf_folders );
+                    }
+                    break;
             }
             return $args;
         }
@@ -371,6 +394,9 @@ if ( ! class_exists( 'NodeApp') ) {
                     $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
                 }
             }
+            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                $hcpp->run( "v-invoke-plugin nodeapp_nginx_modified" );
+            }
             return $xpath;
         }
 
@@ -386,7 +412,7 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 		    global $hcpp;
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $username . ' ' . $pm2_ids, true ) );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $username . ' ' . $pm2_ids ), true );
         }
 
         /**
@@ -410,6 +436,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Add app to startup
                 $cmd .= "; pm2 start $file ";
             }
+
+            
             if ( strpos( $cmd, '; pm2 start ' ) ) {
                 $cmd .= '; pm2 save --force ';
                 $args = [
@@ -436,7 +464,7 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 		    global $hcpp;
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $username . ' ' . $pm2_ids, true ) );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $username . ' ' . $pm2_ids ), true );
         }
 
         /**
@@ -527,6 +555,16 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Notify of any changes to the nginx config files
+         */
+        public function v_restart_proxy( $args ) {
+            if ( file_exists( '/tmp/nodeapp_nginx_modified' ) && ! isset( $args[0] ) ) {
+                shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+            }
+            return $args;
+        }
+
+        /**
          * On domain suspend, shutdown apps
          */
         public function v_suspend_web_domain( $args ) {
@@ -542,7 +580,6 @@ if ( ! class_exists( 'NodeApp') ) {
             if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
                 unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
             }
-            
             $this->shutdown_apps( $nodeapp_folder );
             return $args;
         }
