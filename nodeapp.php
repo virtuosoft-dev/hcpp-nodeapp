@@ -75,6 +75,44 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Throw the nodeapp_nginx_modified event to allow other plugins to modify the nginx config files
+         */
+        public function do_nginx_modified( $restart = false ) {
+            global $hcpp;
+            $lines = file( "/tmp/nodeapp_nginx_modified" );
+
+            // Remove any duplicate lines
+            $lines = array_unique( $lines );
+            $conf_folders = [];
+            foreach( $lines as $line ) {
+                $line = explode( ' ', $line );
+                $user = $line[0];
+                $domain = $line[1];
+                $conf_folders[] = trim( "/home/$user/conf/web/$domain" );
+            }
+            unlink( "/tmp/nodeapp_nginx_modified" );
+            $conf_folders = $hcpp->do_action( "nodeapp_nginx_confs_written", $conf_folders );
+            if ( $restart ) {
+                $hcpp->run( "v-restart-proxy nodeapp_nginx_modified" );
+            }
+        }
+
+        /**
+         * Delete the PM2 apps for the given user by ids.
+         * 
+         * @param array $pm2_ids The list of PM2 process ids to delete
+         */
+        public function delete_pm2_ids( $pm2_ids ) {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+            $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_delete_pm2_ids " . $username . ' ' . $pm2_ids ), true );
+        }
+
+        /**
          * Gather a list of all valid PM2 configuration files that allocate ports from the given folder
          */
         public function get_config_files( $dir ) {
@@ -229,6 +267,19 @@ if ( ! class_exists( 'NodeApp') ) {
                     echo $hcpp->runuser( $username, 'pm2 jlist' );
                     break;
 
+                case 'nodeapp_delete_pm2_ids':
+                    try {
+                        $pm2_ids = json_decode( $args[2], true );
+                    }catch( Exception $e ) {
+                        $pm2_ids = [];
+                    }
+                    $cmd = '';
+                    foreach( $pm2_ids as $id ) {
+                        $cmd .= 'pm2 delete ' . $id . '; ';
+                    }
+                    $cmd .= 'pm2 save --force';
+                    $hcpp->runuser( $username, $cmd );
+                    break;
                 case 'nodeapp_stop_pm2_ids':
                     try {
                         $pm2_ids = json_decode( $args[2], true );
@@ -269,8 +320,6 @@ if ( ! class_exists( 'NodeApp') ) {
                                 }
                                 if ( $app_config_js != '' ) {
                                     $cmd .= 'pm2 restart ' . $app_config_js . '; ';
-                                }else{
-                                    // TODO: Remove orphaned/missing config.js file from pm2 list by id?
                                 }
                             }
                         }
@@ -286,24 +335,13 @@ if ( ! class_exists( 'NodeApp') ) {
                     break;
 
                 case 'nodeapp_nginx_modified':
-                    shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+                    // shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+                    $this->do_nginx_modified( true );
                     break;
 
                 case 'nodeapp_debounce':
                     if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
-                        $lines = file( "/tmp/nodeapp_nginx_modified" );
-
-                        // Remove any duplicate lines
-                        $lines = array_unique( $lines );
-                        $conf_folders = [];
-                        foreach( $lines as $line ) {
-                            $line = explode( ' ', $line );
-                            $user = $line[0];
-                            $domain = $line[1];
-                            $conf_folders[] = trim( "/home/$user/conf/web/$domain" );
-                        }
-                        unlink( "/tmp/nodeapp_nginx_modified" );
-                        $conf_folders = $hcpp->do_action( "nodeapp_nginx_confs_written", $conf_folders );
+                        $this->do_nginx_modified();
                     }
                     break;
             }
@@ -564,7 +602,8 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function v_restart_proxy( $args ) {
             if ( file_exists( '/tmp/nodeapp_nginx_modified' ) && ! isset( $args[0] ) ) {
-                shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+                // shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+                $this->do_nginx_modified( false );
             }
             return $args;
         }

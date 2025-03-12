@@ -63,12 +63,22 @@
 			global $hcpp;
 			$list = $hcpp->nodeapp->get_pm2_list();
 			$i = 0;
+			$removed_apps = '';
+			$removed_ids = [];
 			foreach( $list as $app ){
+				$hcpp->log( $app );
 				$i++;
+				$pm_exec_path = $app['pm2_env']['pm_exec_path'];
 				$name = $app['name'];
+				$pm2_id = $app['pm_id'];
+				if ( !file_exists( $pm_exec_path) ) {
+					$removed_apps .= "<p class=\"u-mb10\">$name was removed; missing $pm_exec_path.</p>";
+					$removed_ids[] = $pm2_id;
+					$hcpp->log("$name was removed; missing $pm_exec_path.");
+					continue;
+				}
 				$restarts = $app['pm2_env']['restart_time'];
 				$version = 'v' . $app['pm2_env']['node_version'];
-				$pm2_id = $app['pm_id'];
 
 				// Calculate uptime
 				$pm_uptime = $app['pm2_env']['pm_uptime'];
@@ -168,6 +178,21 @@
 			}
 		?>
 	</div>
+	<?php
+		if ( $removed_apps != '' ) {
+			$hcpp->nodeapp->delete_pm2_ids( $removed_ids );
+			?>
+			<br>
+			<div class="alert alert-info u-mb10" role="alert" style="max-width: 640px; margin: 0 auto;">
+				<i class="fas fa-info"></i>
+				<div>
+					<p class="u-mb10">Removed Missing NodeApp</p>
+					<?= $removed_apps; ?>
+				</div>
+			</div>
+			<?php
+		}
+	?>
 	<div class="units-table-footer">
 		<p>
 			<?= $i; ?> <?= $i == 1 ? 'NodeApp' : 'NodeApps'; ?>
