@@ -267,7 +267,11 @@ if ( ! class_exists( 'NodeApp') ) {
                                         break;
                                     }
                                 }
-                                $cmd .= 'pm2 restart ' . $app_config_js . '; ';
+                                if ( $app_config_js != '' ) {
+                                    $cmd .= 'pm2 restart ' . $app_config_js . '; ';
+                                }else{
+                                    // TODO: Remove orphaned/missing config.js file from pm2 list by id?
+                                }
                             }
                         }
                     }
