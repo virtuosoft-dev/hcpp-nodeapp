@@ -67,16 +67,16 @@
 			$removed_ids = [];
 			foreach( $list as $app ){
 				$hcpp->log( $app );
-				$i++;
 				$pm_exec_path = $app['pm2_env']['pm_exec_path'];
 				$name = $app['name'];
 				$pm2_id = $app['pm_id'];
 				if ( !file_exists( $pm_exec_path) ) {
-					$removed_apps .= "<p class=\"u-mb10\">$name was removed; missing $pm_exec_path.</p>";
+					$removed_apps .= "<p class=\"u-mb10\"><b>$name</b> was removed; missing $pm_exec_path.</p>";
 					$removed_ids[] = $pm2_id;
 					$hcpp->log("$name was removed; missing $pm_exec_path.");
 					continue;
 				}
+				$i++;
 				$restarts = $app['pm2_env']['restart_time'];
 				$version = 'v' . $app['pm2_env']['node_version'];
 
