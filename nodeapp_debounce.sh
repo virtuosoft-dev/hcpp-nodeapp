@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Debounce script executes once every $TIMEOUT seconds; or resets the timer if already running
+#
 LOCKFILE="/tmp/nodeapp_debounce.lock"
 TIMEOUT=5
 
@@ -19,7 +22,7 @@ while [ $(( $(date +%s) - $(stat -c %Y "$LOCKFILE") )) -lt $TIMEOUT ]; do
     sleep 1
 done
 
-# Your script logic goes here
+# Invoke the plugin with nodeapp_debounce argument
 /usr/local/hestia/bin/v-invoke-plugin nodeapp_debounce
 
 # Lockfile will be removed automatically due to trap
