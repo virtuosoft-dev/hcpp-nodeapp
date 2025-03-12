@@ -67,6 +67,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
             $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
             $hcpp->add_action( 'hcpp_list_web_xpath', [ $this, 'hcpp_list_web_xpath' ] );
+            $hcpp->add_action( 'hcpp_add_webapp_xpath', [ $this, 'hcpp_add_webapp_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
             $hcpp->add_action( 'v_restart_proxy', [ $this, 'v_restart_proxy'] );
@@ -79,7 +80,9 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function do_nginx_modified( $restart = false ) {
             global $hcpp;
+            $hcpp->log( "do_nginx_modified with restart: $restart" );
             $lines = file( "/tmp/nodeapp_nginx_modified" );
+            unlink( "/tmp/nodeapp_nginx_modified" );
 
             // Remove any duplicate lines
             $lines = array_unique( $lines );
@@ -90,10 +93,9 @@ if ( ! class_exists( 'NodeApp') ) {
                 $domain = $line[1];
                 $conf_folders[] = trim( "/home/$user/conf/web/$domain" );
             }
-            unlink( "/tmp/nodeapp_nginx_modified" );
             $conf_folders = $hcpp->do_action( "nodeapp_nginx_confs_written", $conf_folders );
             if ( $restart ) {
-                $hcpp->run( "v-restart-proxy nodeapp_nginx_modified" );
+                $hcpp->run( "v-restart-proxy" );
             }
         }
 
@@ -257,6 +259,17 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Restart proxy on modified nginx config files
+         */
+        public function hcpp_add_webapp_xpath( $xpath ) {
+            global $hcpp;
+            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                $hcpp->run( "v-invoke-plugin nodeapp_nginx_modified" );
+            }
+            return $xpath;
+        }
+
+        /**
          * Process the PM2 list command request
          */
         public function hcpp_invoke_plugin( $args ) {
@@ -335,13 +348,14 @@ if ( ! class_exists( 'NodeApp') ) {
                     break;
 
                 case 'nodeapp_nginx_modified':
-                    // shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
-                    $this->do_nginx_modified( true );
+
+                    // Debounce allows use to queue and delay under higher loads
+                    shell_exec( "nohup " . __DIR__ . "/nodeapp_debounce.sh > /dev/null 2>&1 &" );
                     break;
 
                 case 'nodeapp_debounce':
                     if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
-                        $this->do_nginx_modified();
+                        $this->do_nginx_modified( true );
                     }
                     break;
             }
@@ -399,7 +413,7 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
-         * Add the PM2 process list button to the HestiaCP UI
+         * Add the PM2 process list button to the HestiaCP UI, and restart proxy on modified nginx config files
          */
         public function hcpp_list_web_xpath( $xpath ) {
 
@@ -601,8 +615,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * Notify of any changes to the nginx config files
          */
         public function v_restart_proxy( $args ) {
-            if ( file_exists( '/tmp/nodeapp_nginx_modified' ) && ! isset( $args[0] ) ) {
-                // shell_exec( __DIR__ . "/nodeapp_debounce.sh 2>&1 &" );
+            if ( file_exists( '/tmp/nodeapp_nginx_modified' ) ) {
                 $this->do_nginx_modified( false );
             }
             return $args;
