@@ -65,8 +65,10 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
             $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
             $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
+            $hcpp->add_action( 'v_update_sys_queue', [ $this, 'v_update_sys_queue' ] );
             $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
             $hcpp->add_action( 'hcpp_list_web_xpath', [ $this, 'hcpp_list_web_xpath' ] );
+            $hcpp->add_action( 'hcpp_list_updates_xpath', [ $this, 'hcpp_list_updates_xpath' ] );
             $hcpp->add_action( 'hcpp_add_webapp_xpath', [ $this, 'hcpp_add_webapp_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
@@ -361,7 +363,82 @@ if ( ! class_exists( 'NodeApp') ) {
             }
             return $args;
         }
-        
+
+        public function hcpp_list_updates_xpath( $xpath ) {
+            global $hcpp;
+            $query = '//div[contains(@class, "units-table-row") and .//div[contains(@class, "units-table-cell") and contains(normalize-space(.), "hcpp-nodeapp")]]';
+
+            // Add the CSS to the head of the document
+            $css = 'div.units-table-cell .sub-unit {float:left;margin:-3px 5px 0px 15px;}';
+            $head = $xpath->query('//head')->item(0);
+            $style = $xpath->document->createElement('style', $css);
+            $head->appendChild($style);
+
+            // Inject list of NodeJS versions below hcpp-nodeapp in the updates list
+            $nodes = $xpath->query($query);          
+            if ($nodes->length > 0) {
+
+                // Run script to get NVM list of NodeJS installed and latest versions
+                try {
+                    // TODO: make things faster by reading cached file for 
+                    // version info. This cache file should be updated by the
+                    // 24 hour update process and on user login. Always update
+                    // the cache after update completes.
+                    $versions = shell_exec( __DIR__ . '/nodeapp_versions.sh' );
+                    $versions = json_decode( $versions, true )['versions'];
+                }catch( Exception $e ) {
+                    $hcpp->log( $e->getMessage() );
+                    $versions = [];
+                }
+                $firstNode = $nodes->item(0);
+                $arch = php_uname('m') == 'x86_64' ? 'amd64' : (php_uname('m') == 'aarch64' ? 'arm64' : 'unknown');
+                $html = '';
+                foreach ( $versions as $v ) {
+                    $installed = $v['installed'];
+                    $latest = $v['latest'];
+                    $major = $hcpp->getLeftMost( $installed, '.' );
+                    if ( $installed != $latest ) {
+                        $icon = '<i class="fas fa-triangle-exclamation icon-orange" title="Update available"></i>';
+                        $disabled = 'disabled ';
+                        $notice = '(update ' . $latest . ' available)';
+                    }else{
+                        $icon = '<i class="fas fa-check-circle icon-green" title="Package up-to-date"></i>';
+                        $disabled = '';
+                        $notice = '';
+                    }
+                    $html .= '<div class="units-table-row ' . $disabled . 'js-unit">
+                        <div class="units-table-cell units-table-heading-cell u-text-bold">
+                            <span class="u-hide-desktop">Package Names:</span>
+                            <div class="sub-unit">&#8627;</div>
+                            nvm-nodejs-v' . $major . '
+                        </div>
+                        <div class="units-table-cell">
+                            <span class="u-hide-desktop u-text-bold">Description:</span>
+                            NodeJS v' . $major . ' runtime ' . $notice . '
+                        </div>
+                        <div class="units-table-cell u-text-center-desktop">
+                            <span class="u-hide-desktop u-text-bold">Version:</span>
+                            ' . $installed . ' (' . $arch . ')
+                        </div>
+                        <div class="units-table-cell u-text-center-desktop">
+                            <span class="u-hide-desktop u-text-bold">Status:</span>
+                            ' . $icon . '
+                        </div>
+                    </div>';
+
+                }
+
+                // Create a and insert it after the first found node
+                $fragment = $xpath->document->createDocumentFragment();
+                $fragment->appendXML($html);
+                $firstNode->parentNode->insertBefore($fragment, $firstNode->nextSibling);
+            } else {
+                $hcpp->log("hcpp-nodeapp was not found in updates");
+            }
+
+            return $xpath;
+        }
+
         /**
          * Modify runuser to incorporate NVM
          */
@@ -659,6 +736,21 @@ if ( ! class_exists( 'NodeApp') ) {
                 }    
             }
             return $args;
+        }
+
+        /**
+         * Update our NVM managed and installed NodeJS versions global packages.
+         */
+        public function v_update_sys_queue( $args ) {
+            global $hcpp;
+            if ( ! (isset( $args[0] ) && $args[0] == 'daily ') ) return $args;
+            if ( strpos( $hcpp->run('v-list-sys-hestia-autoupdate'), 'Enabled') == false ) return $args;
+            // TODO: Check if any updates need to take place
+            // If so, examine all users PM2 lists and note which ones are running, then stop them.
+            // Update NVM and NodeJS, re-install global packages, then restart the PM2 apps that were running.
+            // Clean up any old versions of NodeJS. 
+            // $cmd = 'cd /opt/nvm && git pull && ./install.sh && nvm install node --reinstall-packages-from=node && nvm alias default node';
+            // $hcpp->run( $cmd );
         }
     }
     global $hcpp;

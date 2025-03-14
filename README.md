@@ -13,6 +13,10 @@ Long term support NodeJS versions that are automatically installed with this plu
 * Iron v20
 * Jod v22
 
+NodeApp also includes an updated administrator's [Server Settings -> Updates]() screen (see figure 2 below) that shows the current state of NVM NodeJS  versions. All versions are automatically updated and maintained along with any global modules when HestiaCP's native [Enable Automatic Updates]() option is turned on.
+
+<br><img src='images/updates.png' width='100%'><br>
+
 &nbsp;
 ## Installation
 HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Clone the latest release version (i.e. replace **v2.0.0** below with the latest release version) to the nodeapp folder:
@@ -27,7 +31,7 @@ Note: It is important that the destination plugin folder name is `nodeapp`.
 Be sure to logout and login again to your Hestia Control Panel as the admin user or, as admin, visit Server (gear icon) -> Configure -> Plugins -> Save; the plugin will immediately start installing NodeJS depedencies in the background. 
 
 <br><img src='images/nodeapp-notify.jpg' width='50%'><br>
-<sub>Figure 2 - NodeApp plugin install notification</sub>
+<sub>Figure 3 - NodeApp plugin install notification</sub>
 
 A notification will appear under the admin user account indicating *"NodeApp plugin has finished installing"* when complete. This may take awhile before the options appear in Hestia. You can force manual installation via:
 
@@ -42,20 +46,20 @@ sudo touch "/usr/local/hestia/data/hcpp/installed/nodeapp"
 The Hestia user account to be associated with a new web domain must have bash SSH access. This is to allow Hestia to switch to their user account to start and stop the NodeJS application. Login as the admin user in Hestia to grant bash SSH Access. Simply edit the Hestia user account; 1) Click the *'Advanced Options'* button after ***'Edit User'*** and 2) Select `bash` from the combobox under ***'SSH Access'***, and save the changes (see image below).
 
 <br><img src='images/enable-bash.jpg' width='50%'><br>
-<sub>Figure 3 - Enable Bash for domain</sub>
+<sub>Figure 4 - Enable Bash for domain</sub>
 
 The basic default NodeJS application is the [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html). To use it, simply select the user account (that has bash SSH access enabled), and add a web domain. Edit the web domain; 1) Click the ***'Advanced Options'*** and 2) Select `NodeApp` in the ***'Proxy Template'*** combobox (if the option is missing, wait for installation to complete or attempt manual installation instructions above).
 
 <br><img src='images/nodeapp.jpg' width='50%'><br>
-<sub>Figure 4 - Selecting a Proxy Template</sub>
+<sub>Figure 5 - Selecting a Proxy Template</sub>
 
 ## Root NodeJS Application Hosting
 Using the NodeApp proxy template will allow you to host a NodeJS application from the web domain root (for a subfolder, see **'Subfolder NodeJS Application below'**). The example above will serve the NodeJS application using PM2. After saving your changes, you should be able to visit the web domain and see the `Hello World!` text on a white background. The basic NodeJS Express application lives in the `app.js` file which is located in the nodeapp folder. I.e. for the user "johnsmith" on "example.com", the filename path for the application would be at `/home/johnsmith/web/example.com/nodeapp/app.js`. Hestia control panel will automatically stop the NodeJS application when you select a different proxy template for the domain and restart it when you select NodeApp again. Likewise if you delete the domain, Hestia will free the allocated port from the pool of ports on the system and shutdown the NodeJS app prior to deleting the web domain.
 
 ## Subfolder NodeJS Application Hosting
-The HCPP-NodeApp plugin automatically scans the nodeapp folder for any additional PM2 configuration files (*.config.js) in subfolders (excluding node_modules). If it finds any such files, NodeApp plugin will automatically allocate an application port and auto-generate an Nginx include file, defininig the subfolder path, for addendum to whichever backend proxy template is selected. This allows you to automatically mix the hosting of multiple applications under a single domain. For instance, you can select Hestia's default backend template to host a PHP based application in root (such as WordPress), while hosting a NodeJS based applicaiton in a subfolder (such as nodeBB, or Node-RED). Simply create a subfolder within the nodeapp folder and place a valid, unique, *&lt;application name&gt;*.config.js file within the subfolder. You can simply copy the app.config.js file; replace *'app'* with your own application name (be sure to update the package.json's *'main'* property from *'app'* too). Nginx will be configured to serve the NodeJS application under the given subfolder (i.e. www.example.com/nodebb). Note: the *&lt;application name&gt;*.config.js file name must be unique for a given domain. For example, you cannot have two app.config.js files; even if one exists in a subfolder. Instead, i.e. name the second file app2.config.js.
+The HCPP-NodeApp plugin automatically scans the nodeapp folder for any additional PM2 configuration files (*.config.js) in subfolders (excluding node_modules). If it finds any such files, NodeApp plugin will automatically allocate an application port and auto-generate an Nginx include file, defininig the subfolder path, for addendum to whichever backend proxy template is selected. This allows you to automatically mix the hosting of multiple applications under a single domain. For instance, you can select Hestia's default backend template to host a PHP based application in root (such as WordPress), while hosting a NodeJS based applicaiton in a subfolder (such as VitePress, or Node-RED). Simply create a subfolder within the nodeapp folder and place a valid, unique, *&lt;application name&gt;*.config.js file within the subfolder. You can simply copy the app.config.js file; replace *'app'* with your own application name (be sure to update the package.json's *'main'* property from *'app'* too). Nginx will be configured to serve the NodeJS application under the given subfolder (i.e. www.example.com/nodebb). Note: the *&lt;application name&gt;*.config.js file name must be unique for a given domain. For example, you cannot have two app.config.js files; even if one exists in a subfolder. Instead, i.e. name the second file app2.config.js.
 
-Likewise, you can select the backend proxy template `NodeApp` and host two NodeJS applications, one from root, and another in a subfolder. Note that the scanning for *.config.js files, automatic allocation of proxy ports, auto-generation of Nginx addendum files, and automatic startup of NodeJS, only takes place when Nginx services are restarted; you can invoke a restart by selecting/re-selecting a different Proxy Template (see figure 3 above) or using HestiaCP's *`suspend'* and *'unsuspend'* actions. You may use suspend/unsuspend options to populate the NodeApp process list.
+Likewise, you can select the backend proxy template `NodeApp` and host two NodeJS applications, one from root, and another in a subfolder. Note that the scanning for *.config.js files, automatic allocation of proxy ports, auto-generation of Nginx addendum files, and automatic startup of NodeJS, only takes place when Nginx services are restarted; you can invoke a restart by selecting/re-selecting a different Proxy Template (see figure 4 above) or using HestiaCP's *`suspend'* and *'unsuspend'* actions. You may use suspend/unsuspend options to populate the NodeApp process list.
 
 
 ## Conclusion
