@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# @author Stephen J. Carnam
+# @license GNU GENERAL PUBLIC LICENSE Version 2
+# @link https://steveorevo.com
+#
+
+# Check if a command is provided
+if [ -z "$1" ]; then
+  echo "Usage: benchmark <command>"
+  exit 1
+fi
+
+# Capture the start time in nanoseconds
+start_time=$(date +%s%N)
+
+# Run the provided command
+"$@"
+
+# Capture the end time in nanoseconds
+end_time=$(date +%s%N)
+
+# Calculate the elapsed time in seconds with fractional seconds
+elapsed_time=$(echo "scale=6; ($end_time - $start_time) / 1000000000" | bc)
+
+# Format the elapsed time
+minutes=$(echo "$elapsed_time / 60" | bc)
+seconds=$(echo "$elapsed_time % 60" | bc)
+
+if (( $(echo "$minutes > 0" | bc -l) )); then
+  printf "Time taken: %d minutes and %.6f seconds\n" "$minutes" "$seconds"
+else
+  printf "Time taken: %.6f seconds\n" "$seconds"
+fi
