@@ -82,6 +82,7 @@ the NodeApp. Developers can hook and implement their own NodeApp using these act
 * **nodeapp_html** - *occurs when viewing the NodeApp process list.*
 * **nodeapplog_xpath** - *occurs when viewing the NodeApp process log.*
 * **nodeapplog_html** - *occurs when viewing the NodeApp process log.*
+* **nodeapp_update_nodejs** - *occurs when a nodejs version is about to be updated.*
 
 
 ## Support the creator
