@@ -816,7 +816,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 ];
                 $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
                 $nodeapp_folder = $args['nodeapp_folder'];
-                chmod( $nodeapp_folder, 0751 );
+                chmod( $nodeapp_folder, 0755 );
 
                 // Install dependencies
                 $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
