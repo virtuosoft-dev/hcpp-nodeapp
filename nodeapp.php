@@ -234,16 +234,18 @@ if ( ! class_exists( 'NodeApp') ) {
         /**
          * Get the list of PM2 processes for the given user
          * 
-         * @param string $user The username to get the PM2 process list for
+         * @param string $user The username to get the PM2 process list for or the current HestiaCP user if not provided
          * @return array The list of PM2 processes for the given user
          */
-        public function get_pm2_list() {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function get_pm2_list( $user = '""' ) {
+            if ( $user == '""' && isset( $_SESSION ) ) {
+                $user = $_SESSION['user'];
+                if ( $_SESSION['look'] != '' ) {
+                    $user = $_SESSION['look'];
+                }
             }
 		    global $hcpp;
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $username), true );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $user), true );
 		    return $list;
         }
         
@@ -258,6 +260,53 @@ if ( ! class_exists( 'NodeApp') ) {
 		    global $hcpp;
 		    $log = $hcpp->run("v-invoke-plugin nodeapp_pm2_log " . $username . ' ' . $pm2_id );
             return $log;
+        }
+
+        /**
+         * Get the installed and latest versions of nvm managed NodeJS installs.
+         */
+        public function get_versions() {
+            global $hcpp;
+            $list = $hcpp->runuser( '', "nvm list --no-colors" );
+            $list = explode( "\n", $list );
+            $installed = [];
+            $latest = [];
+            $majors = [];
+            foreach( $list as $line ) {
+              if ( strpos( $line, 'lts/' ) !== false ) {
+                $line = $hcpp->getRightMost( $line, ' v' );
+                $line = $hcpp->getLeftMost( $line, ' ' );
+                $major = $hcpp->getLeftMost( $line, '.' );
+                if ( in_array( $major, $majors ) ) {
+                  if( !in_array( $line, $latest ) ) {
+                    $latest[] = $line;
+                  }  
+                }
+              }else{
+                if ( strpos( $line, '*' ) !== false ) {
+                  $line = $hcpp->getRightMost( $line, ' v' );
+                  $line = $hcpp->getLeftMost( $line, ' ' );
+                  if ( !in_array( $line, $installed ) ) {
+                    $installed[] = $line;
+                    $majors[] = $hcpp->getLeftMost( $line, '.' );
+                  }
+                }
+              }
+            }
+            // sort latest
+            usort( $latest, function( $a, $b ) {
+              return version_compare( $a, $b );
+            });
+            $versions = [];
+            $i = 0;
+            foreach( $installed as $version ) {
+              $versions[] = [
+                'installed' => $version,
+                'latest' => $latest[$i]
+              ];
+              $i++;
+            }
+            return $versions;
         }
 
         /**
@@ -278,6 +327,9 @@ if ( ! class_exists( 'NodeApp') ) {
             global $hcpp;
             $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
             switch ( $args[0] ) {
+                case 'nodeapp_get_versions':
+                    echo json_encode( $this->get_versions() );
+                    break;
                 case 'nodeapp_pm2_jlist':
                     echo $hcpp->runuser( $username, 'pm2 jlist' );
                     break;
@@ -307,6 +359,14 @@ if ( ! class_exists( 'NodeApp') ) {
                     }
                     $cmd .= 'pm2 save --force';
                     $hcpp->runuser( $username, $cmd );
+
+                    // Force remove the PM2 logs 
+                    $error_log_path = $hcpp->runuser( $username, 'pm2 info ' . $id . ' | grep "error log path"' );
+                    $error_log_path = '/' . $hcpp->delLeftMost( $error_log_path, '/' );
+                    $error_log_path = $hcpp->delRightMost( $error_log_path, '.log' ) . '.log';
+                    $out_log_path = str_replace( '-error.log', '-out.log', $error_log_path );
+                    $cmd = 'rm -f ' . $error_log_path . '; ' . 'rm -f ' . $out_log_path;
+                    $hcpp->runuser( $username, $cmd );
                     break;
 
                 case 'nodeapp_restart_pm2_ids':
@@ -322,19 +382,12 @@ if ( ! class_exists( 'NodeApp') ) {
                     foreach( $pm2_ids as $id ) {
                         foreach( $list as $app ) {
                             if ( $app['pm_id'] == $id ) {
-                                $folder = $app['pm2_env']['pm_cwd'];
-                                
-                                // Find the first *.config.js file in the folder using PHP
-                                $files = scandir( $folder );
-                                $app_config_js = '';
-                                foreach( $files as $file ) {
-                                    if ( preg_match( '/\.config\.js$/', $file ) ) {
-                                        $app_config_js = $folder . '/' . $file;
-                                        break;
-                                    }
-                                }
-                                if ( $app_config_js != '' ) {
-                                    $cmd .= 'pm2 restart ' . $app_config_js . '; ';
+
+                                // Get the config.js file based on the script file
+                                $config = $app['pm2_env']['script'];
+                                $config = $hcpp->delRightMost( $config, '.' ) . '.config.js';
+                                if ( $config != '' ) {
+                                    $cmd .= 'pm2 restart ' . $config . '; ';
                                 }
                             }
                         }
@@ -346,7 +399,7 @@ if ( ! class_exists( 'NodeApp') ) {
                 case 'nodeapp_pm2_log':
                     $pm2_id = $args[2];
                     $pm2_id = filter_var( $pm2_id, FILTER_SANITIZE_NUMBER_INT );
-                    echo $hcpp->runuser( $username, 'pm2 logs --lines 4096 --nostream --raw ' . $pm2_id );
+                    echo $hcpp->runuser( $username, 'pm2 logs --lines 4096 --nostream --raw --no-color ' . $pm2_id . ' 2>&1' );
                     break;
 
                 case 'nodeapp_nginx_modified':
@@ -378,18 +431,8 @@ if ( ! class_exists( 'NodeApp') ) {
             $nodes = $xpath->query($query);          
             if ($nodes->length > 0) {
 
-                // Run script to get NVM list of NodeJS installed and latest versions
-                try {
-                    // TODO: make things faster by reading cached file for 
-                    // version info. This cache file should be updated by the
-                    // 24 hour update process and on user login. Always update
-                    // the cache after update completes.
-                    $versions = shell_exec( __DIR__ . '/nodeapp_versions.sh' );
-                    $versions = json_decode( $versions, true )['versions'];
-                }catch( Exception $e ) {
-                    $hcpp->log( $e->getMessage() );
-                    $versions = [];
-                }
+                // Get the list of NodeJS versions from the cache
+                $versions = $hcpp->run( 'v-invoke-plugin nodeapp_get_versions json' );
                 $firstNode = $nodes->item(0);
                 $arch = php_uname('m') == 'x86_64' ? 'amd64' : (php_uname('m') == 'aarch64' ? 'arm64' : 'unknown');
                 $html = '';
@@ -538,15 +581,18 @@ if ( ! class_exists( 'NodeApp') ) {
          * Restart the PM2 apps for the given user by ids.
          * 
          * @param array $pm2_ids The list of PM2 process ids to restart
+         * @param string $user The username to restart the PM2 processes for or the current HestiaCP user if not provided
          */
-        public function restart_pm2_ids( $pm2_ids) {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function restart_pm2_ids( $pm2_ids, $user = '""' ) {
+            if ( $user == '""' && isset( $_SESSION ) ) {
+                $user = $_SESSION['user'];
+                if ( $_SESSION['look'] != '' ) {
+                    $user = $_SESSION['look'];
+                }
             }
 		    global $hcpp;
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $username . ' ' . $pm2_ids ), true );
+		    $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $user . ' ' . $pm2_ids );
         }
 
         /**
@@ -590,15 +636,18 @@ if ( ! class_exists( 'NodeApp') ) {
          * Stop the PM2 apps for the given user by ids.
          * 
          * @param array $pm2_ids The list of PM2 process ids to stop
+         * @param string $user The username to stop the PM2 processes for or the current HestiaCP user if not provided
          */
-        public function stop_pm2_ids( $pm2_ids ) {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function stop_pm2_ids( $pm2_ids, $user = '""' ) {
+            if ( $user == '""' && isset( $_SESSION ) ) {
+                $user = $_SESSION['user'];
+                if ( $_SESSION['look'] != '' ) {
+                    $user = $_SESSION['look'];
+                }
             }
 		    global $hcpp;
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $username . ' ' . $pm2_ids ), true );
+		    $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $user . ' ' . $pm2_ids );
         }
 
         /**
@@ -637,6 +686,92 @@ if ( ! class_exists( 'NodeApp') ) {
                 $args = $hcpp->do_action( 'nodeapp_shutdown_services', $args );
                 $hcpp->runuser( $user, $args['cmd'] );
             }            
+        }
+
+        /**
+         * Update all NVM managed NodeJS versions and global packages;
+         * gracefully stop all running PM2 apps using the major version,
+         * update NodeJS, and restart the stopped apps for each user.
+         */
+        public function update_all() {
+            // Get user list of PM2 (bash) capable users
+            global $hcpp;
+            $all = $hcpp->run( 'v-list-users json' );
+            $users = [];
+            foreach( $all as $user => $details ) {
+                if ( $details['SHELL'] == 'bash' ) {
+                    $users[] = $user;
+                }
+            }
+
+            // Get running PM2 list for each user
+            $pm2_list = [];
+            foreach( $users as $user) {
+                $pm2 = $this->get_pm2_list( $user );
+                $processes = [];
+                foreach( $pm2 as $p ) {
+                    if ( $p['pm2_env']['status'] == 'online' ) {
+                        $version = $p['pm2_env']['exec_interpreter'];
+                        $version = $hcpp->getRightMost( $version, '/v' );
+                        $version = $hcpp->getLeftMost( $version, '/' );
+                        $pm2_list[$user] = [ 
+                            'id' => $p['pm_id'],
+                            'version' => $version,
+                            'major' => $hcpp->getLeftMost( $version, '.' )
+                        ];
+                    }
+                }
+            }
+
+            // Get list of new versions to run 'nvm install $latest'
+            $versions = $this->get_versions();
+            $stopped = [];
+            $updates = [];
+            foreach( $versions as $v ) {
+
+                // Find any nodejs versions that need to be updated
+                if ( $v['installed'] != $v['latest'] ) {
+                    $updates[] = $v;
+                    
+                    // Find any running apps using the major version
+                    foreach( $pm2_list as $user => $p ) {
+                        if ( $p['major'] == $hcpp->getLeftMost( $v['installed'], '.' ) ) {
+                            $stopped[$user][] = $p;
+                        }
+                    }
+                }
+            }
+
+            // Stop apps by id for each user
+            foreach( $stopped as $user => $apps ) {
+                $ids = [];
+                foreach( $apps as $app ) {
+                    $ids[] = $app['id'];
+                }
+                if ( count( $ids ) > 0 ) {
+                    $this->stop_pm2_ids( $ids, $user );
+                }
+            }
+
+            // Update NodeJS, npm, and re-install global packages
+            foreach( $updates as $v ) {
+                $cmd = 'nvm install ' . $v['latest'] . ' && nvm use ' . $v['latest'] . ' && npm install -g npm';
+                $cmd .= ' && nvm reinstall-packages ' . $v['installed'];
+                $cmd .= ' && nvm uninstall ' . $v['installed'];
+                $cmd = $hcpp->do_action( 'nodeapp_update_nodejs', $cmd );
+                $hcpp->runuser( '', $cmd );
+            }
+
+            // Restart all apps by id for each user
+            foreach( $stopped as $user => $apps ) {
+                $ids = [];
+                foreach( $apps as $app ) {
+                    $ids[] = $app['id'];
+                }
+                if ( count( $ids ) > 0 ) {
+                    $this->restart_pm2_ids( $ids, $user );
+                }
+            }
         }
 
         /**
@@ -739,18 +874,14 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
-         * Update our NVM managed and installed NodeJS versions global packages.
+         * Check daily to update our NVM managed and installed NodeJS versions global packages.
          */
         public function v_update_sys_queue( $args ) {
             global $hcpp;
             if ( ! (isset( $args[0] ) && $args[0] == 'daily ') ) return $args;
             if ( strpos( $hcpp->run('v-list-sys-hestia-autoupdate'), 'Enabled') == false ) return $args;
-            // TODO: Check if any updates need to take place
-            // If so, examine all users PM2 lists and note which ones are running, then stop them.
-            // Update NVM and NodeJS, re-install global packages, then restart the PM2 apps that were running.
-            // Clean up any old versions of NodeJS. 
-            // $cmd = 'cd /opt/nvm && git pull && ./install.sh && nvm install node --reinstall-packages-from=node && nvm alias default node';
-            // $hcpp->run( $cmd );
+            $this->update_all();
+            return $args;
         }
     }
     global $hcpp;
