@@ -218,6 +218,7 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function hcpp_invoke_plugin( $args ) {
             global $hcpp;
+            if (count($args) < 2) return $args; // Exit early
             $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
             switch ( $args[0] ) {
                 case 'nodeapp_pm2_jlist':
