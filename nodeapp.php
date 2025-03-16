@@ -78,6 +78,77 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Do maintenance will shutdown all running apps, across all users that are
+         * using the specified major version of NodeJS and invoke the given callback.
+         * Lastly, after the callback has returned, the apps will be restarted.
+         * 
+         * @param array $majors The list of major versions to perform maintenance on; leave empty to shutdown all running apps.
+         * @param callable $cb_maintenance The callback to invoke after all apps have been shutdown, a [user=>apps] array will be passed of stopped apps.
+         */
+        public function do_maintenance( $majors = [], $cb_maintenance = null ) {
+
+            // Check if majors array is empty and get all majors as default
+            global $hcpp;
+            $hcpp->log( 'nodeapp do_maintenance' );
+            $hcpp->log( $majors );
+
+            if ( count( $majors ) == 0 ) {
+                $versions = $this->get_versions();
+                foreach( $versions as $v ) {
+                    $majors[] = $hcpp->getLeftMost( $v['installed'], '.' );
+                }
+            }
+
+            // Get user list of PM2 (bash) capable users
+            global $hcpp;
+            $all = $hcpp->run( 'v-list-users json' );
+            $users = [];
+            foreach( $all as $user => $details ) {
+                if ( $details['SHELL'] == 'bash' ) {
+                    $users[] = $user;
+                }
+            }
+
+            // Find any running apps using the major version across all users
+            $pm2_list = [];
+            foreach( $users as $user) {
+                $pm2 = $this->get_pm2_list( $user );
+                foreach( $pm2 as $p ) {
+                    if ( $p['pm2_env']['status'] == 'online' ) {
+                        $version = $p['pm2_env']['exec_interpreter'];
+                        $version = $hcpp->getRightMost( $version, '/v' );
+                        $version = $hcpp->getLeftMost( $version, '/' );
+                        $major = $hcpp->getLeftMost( $version, '.' );
+                        if ( in_array( $major, $majors ) ) {
+                            $pm2_list[$user][] = $p['pm_id'];
+                        }
+                    }
+                }
+            }
+            $pm2_list = $hcpp->do_action( 'nodeapp_maintenance_start', $pm2_list );
+
+            // Shutdown all apps by id for each user
+            foreach( $pm2_list as $user => $app_ids ) {
+                if ( count( $app_ids ) > 0 ) {
+                    $this->stop_pm2_ids( $app_ids, $user );
+                }
+            }
+
+            // Invoke the maintenance callback
+            if ( is_callable( $cb_maintenance ) ) {
+                $cb_maintenance( $pm2_list );
+            }
+
+            // Restart the stopped apps by id for each user
+            foreach( $pm2_list as $user => $app_ids ) {
+                if ( count( $app_ids ) > 0 ) {
+                    $this->restart_pm2_ids( $app_ids, $user );
+                }
+            }
+            $pm2_list = $hcpp->do_action( 'nodeapp_maintenance_end', $pm2_list );
+        }
+
+        /**
          * Throw the nodeapp_nginx_modified event to allow other plugins to modify the nginx config files
          */
         public function do_nginx_modified( $restart = false ) {
@@ -325,9 +396,11 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function hcpp_invoke_plugin( $args ) {
             global $hcpp;
+            if ( count( $args ) < 2 ) return $args;
             $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
             switch ( $args[0] ) {
                 case 'nodeapp_get_versions':
+                    $hcpp->log( 'nodeapp_get_versions' );
                     echo json_encode( $this->get_versions() );
                     break;
                 case 'nodeapp_pm2_jlist':
@@ -591,6 +664,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
 		    global $hcpp;
+            $hcpp->log( 'nodeapp restart_pm2_ids for user: ' . $user );
+            $hcpp->log( $pm2_ids );
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
 		    $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $user . ' ' . $pm2_ids );
         }
@@ -646,6 +721,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
 		    global $hcpp;
+            $hcpp->log( 'nodeapp stop_pm2_ids for user: ' . $user );
+            $hcpp->log( $pm2_ids );
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
 		    $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $user . ' ' . $pm2_ids );
         }
@@ -724,74 +801,6 @@ if ( ! class_exists( 'NodeApp') ) {
                     $hcpp->runuser( '', $cmd );
                 }
             });
-        }
-
-        /**
-         * Do maintenance will shutdown all running apps, across all users that are
-         * using the specified major version of NodeJS and invoke the given callback.
-         * Lastly, after the callback has returned, the apps will be restarted.
-         * 
-         * @param array $majors The list of major versions to perform maintenance on; leave empty to shutdown all running apps.
-         * @param callable $cb_maintenance The callback to invoke after all apps have been shutdown, a [user=>apps] array will be passed of stopped apps.
-         */
-        public function do_maintenance( $majors = [], $cb_maintenance = null ) {
-
-            // Check if majors array is empty and get all majors as default
-            global $hcpp;
-            if ( count( $majors ) == 0 ) {
-                $versions = $this->get_versions();
-                foreach( $versions as $v ) {
-                    $majors[] = $hcpp->getLeftMost( $v['installed'], '.' );
-                }
-            }
-
-            // Get user list of PM2 (bash) capable users
-            global $hcpp;
-            $all = $hcpp->run( 'v-list-users json' );
-            $users = [];
-            foreach( $all as $user => $details ) {
-                if ( $details['SHELL'] == 'bash' ) {
-                    $users[] = $user;
-                }
-            }
-
-            // Find any running apps using the major version across all users
-            $pm2_list = [];
-            foreach( $users as $user) {
-                $pm2 = $this->get_pm2_list( $user );
-                foreach( $pm2 as $p ) {
-                    if ( $p['pm2_env']['status'] == 'online' ) {
-                        $version = $p['pm2_env']['exec_interpreter'];
-                        $version = $hcpp->getRightMost( $version, '/v' );
-                        $version = $hcpp->getLeftMost( $version, '/' );
-                        $major = $hcpp->getLeftMost( $version, '.' );
-                        if ( in_array( $major, $majors ) ) {
-                            $pm2_list[$user][] = $p['pm_id'];
-                        }
-                    }
-                }
-            }
-            $pm2_list = $hcpp->do_action( 'nodeapp_maintenance_start', $pm2_list );
-
-            // Shutdown all apps by id for each user
-            foreach( $pm2_list as $user => $app_ids ) {
-                if ( count( $app_ids ) > 0 ) {
-                    $this->stop_pm2_ids( $app_ids, $user );
-                }
-            }
-
-            // Invoke the maintenance callback
-            if ( is_callable( $cb_maintenance ) ) {
-                $cb_maintenance( $pm2_list );
-            }
-
-            // Restart the stopped apps by id for each user
-            foreach( $pm2_list as $user => $app_ids ) {
-                if ( count( $app_ids ) > 0 ) {
-                    $this->restart_pm2_ids( $app_ids, $user );
-                }
-            }
-            $pm2_list = $hcpp->do_action( 'nodeapp_maintenance_end', $pm2_list );
         }
 
         /**
