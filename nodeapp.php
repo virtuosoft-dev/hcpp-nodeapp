@@ -113,6 +113,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $pm2_list = [];
             foreach( $users as $user) {
                 $pm2 = $this->get_pm2_list( $user );
+                if ( is_null( $pm2 ) ) continue;
                 foreach( $pm2 as $p ) {
                     if ( $p['pm2_env']['status'] == 'online' ) {
                         $version = $p['pm2_env']['exec_interpreter'];
@@ -316,7 +317,9 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
 		    global $hcpp;
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $user), true );
+            $list = $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $user);
+            $list = '[' . $hcpp->delLeftMost( $list, '[' );
+            $list = json_decode( $list, true );
 		    return $list;
         }
         
@@ -450,15 +453,17 @@ if ( ! class_exists( 'NodeApp') ) {
                     }
                     
                     // Restart via config.js filename; find by pm2_id
-                    $list = json_decode( $hcpp->runuser( $username, 'pm2 jlist' ), true );
+                    $list = $hcpp->runuser( $username, 'pm2 jlist' );
+                    $list = '[' . $hcpp->delLeftMost( $list, '[' );
+                    $list = json_decode( $list, true );
                     $cmd = '';
                     foreach( $pm2_ids as $id ) {
                         foreach( $list as $app ) {
                             if ( $app['pm_id'] == $id ) {
 
                                 // Get the config.js file based on the script file
-                                $config = $app['pm2_env']['script'];
-                                $config = $hcpp->delRightMost( $config, '.' ) . '.config.js';
+                                $config = $hcpp->getLeftMost( $app['name'], ' | ' );
+                                $config = $app['pm2_env']['cwd'] . '/' . $config . '.config.js';
                                 if ( $config != '' ) {
                                     $cmd .= 'pm2 restart ' . $config . '; ';
                                 }
