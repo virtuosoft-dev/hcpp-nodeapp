@@ -50,7 +50,7 @@
 			<div class="units-table-cell">
 				<input type="checkbox" class="js-toggle-all-checkbox" title="Select all">
 			</div>
-			<div class="units-table-cell">Name</div>
+			<div class="units-table-cell">Name | Domain </div>
 			<div class="units-table-cell"></div>
 			<div class="units-table-cell">NodeJS</div>
 			<div class="units-table-cell u-text-center">Restarts</div>
@@ -132,13 +132,13 @@
 							</li>
 							<?php if ( $status == 'online' ) { ?>
 								<li class="units-table-row-action shortcut-s" data-key-action="js">
-									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=restart&pm2_id=<?= $pm2_id; ?>" title="Restart" data-confirm-title="Restart" data-confirm-message="Are you sure you want to restart the <?= $name; ?> NodeApp?">
+									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=restart&pm2_id=<?= $pm2_id; ?>" title="Restart" data-confirm-title="Restart" data-confirm-message="Are you sure you want to restart <?= $name; ?>?">
 										<i class="fas fa-arrow-rotate-left icon-highlight"></i>
 										<span class="u-hide-desktop">Restart</span>
 									</a>
 								</li>
 								<li class="units-table-row-action shortcut-delete" data-key-action="js">
-									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=stop&pm2_id=<?= $pm2_id; ?>" title="Stop" data-confirm-title="Stop" data-confirm-message="Are you sure you want to stop the <?= $name; ?> NodeApp?">
+									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=stop&pm2_id=<?= $pm2_id; ?>" title="Stop" data-confirm-title="Stop" data-confirm-message="Are you sure you want to stop <?= $name; ?>?">
 										<i class="fas fa-stop icon-red"></i>
 										<span class="u-hide-desktop">Stop</span>
 									</a>
