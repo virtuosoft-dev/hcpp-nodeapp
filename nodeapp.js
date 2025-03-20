@@ -72,11 +72,11 @@ module.exports = function(path) {
     details.linkGlobalModules = function(modules) {
 
         // Ensure node_modules directory exists
-        const fs = require('fs');
-        if (!fs.existsSync('node_modules')) {
-            fs.mkdirSync('node_modules');
+        const nodeModulesPath = this.cwd + '/node_modules';
+        if (!fs.existsSync(nodeModulesPath)) {
+            fs.mkdirSync(nodeModulesPath);
         }
-
+        
         // Setup nvm, use npm version specified in .nvmrc
         let cmd = "bash -c 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && nvm use " + this.version + " && ";
         cmd += "cd " + this.cwd + " && ";
@@ -86,7 +86,6 @@ module.exports = function(path) {
             cmd += "unlink node_modules/" + modules[i] + " > /dev/null 2>&1 ; npm link " + modules[i] + " > /dev/null 2>&1 ; ";
         }
         cmd += "'";
-        console.log(cmd);
 
         // Update npm links
         try {
