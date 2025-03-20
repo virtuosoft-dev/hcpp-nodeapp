@@ -855,6 +855,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
+            unlink( "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports" );
         }
 
         /**
