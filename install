@@ -14,7 +14,7 @@ fi
 # apt remove --purge nodejs -y
 
 # Get prerequisites, latest NVM version, and build tools if we need to compile from source
-apt-get install -y curl build-essential gnupg2
+apt-get install -y curl build-essential gnupg2 rsync
 LATEST_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep '"tag_name":' | cut -d '"' -f 4)
 curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/${LATEST_VERSION}/install.sh | bash
 source ~/.bashrc
@@ -74,6 +74,30 @@ export PATH="/opt/nvm:\$PATH"
 EOT
 
 fi
+
+# Comment out /root/.bashrc
+BASHRC_FILE="/root/.bashrc"
+
+# Lines to search for
+NVM_LINES=(
+    'export NVM_DIR="$HOME/.nvm"'
+    '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+    '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+)
+
+# Iterate over each line and comment it out if not already commented
+for line in "${NVM_LINES[@]}"; do
+    # Escape special characters in the line for use in grep and sed
+    escaped_line=$(printf '%s\n' "$line" | sed 's/[.[\*^$(){}?+|]/\\&/g')
+
+    # Check if the line exists and is not already commented
+    if grep -q "$escaped_line" "$BASHRC_FILE" && ! grep -q "# $escaped_line" "$BASHRC_FILE"; then
+        sed -i "s|$escaped_line|# $line|" "$BASHRC_FILE"
+        echo "Commented out: $line"
+    else
+        echo "Line not found or already commented: $line"
+    fi
+done
 
 # Notify installation has finished
 /usr/local/hestia/bin/v-add-user-notification admin NodeApp "<span style=\"font-size:large;color:green;\">&#11042;</span> NodeApp plugin has finished installing."

@@ -50,7 +50,7 @@
 			<div class="units-table-cell">
 				<input type="checkbox" class="js-toggle-all-checkbox" title="Select all">
 			</div>
-			<div class="units-table-cell">Name</div>
+			<div class="units-table-cell">Name | Domain </div>
 			<div class="units-table-cell"></div>
 			<div class="units-table-cell">NodeJS</div>
 			<div class="units-table-cell u-text-center">Restarts</div>
@@ -63,12 +63,22 @@
 			global $hcpp;
 			$list = $hcpp->nodeapp->get_pm2_list();
 			$i = 0;
+			$removed_apps = '';
+			$removed_ids = [];
 			foreach( $list as $app ){
-				$i++;
+				$hcpp->log( $app );
+				$pm_exec_path = $app['pm2_env']['pm_exec_path'];
 				$name = $app['name'];
+				$pm2_id = $app['pm_id'];
+				if ( !file_exists( $pm_exec_path) ) {
+					$removed_apps .= "<p class=\"u-mb10\"><b>$name</b> was removed; missing $pm_exec_path.</p>";
+					$removed_ids[] = $pm2_id;
+					$hcpp->log("$name was removed; missing $pm_exec_path.");
+					continue;
+				}
+				$i++;
 				$restarts = $app['pm2_env']['restart_time'];
 				$version = 'v' . $app['pm2_env']['node_version'];
-				$pm2_id = $app['pm_id'];
 
 				// Calculate uptime
 				$pm_uptime = $app['pm2_env']['pm_uptime'];
@@ -122,13 +132,13 @@
 							</li>
 							<?php if ( $status == 'online' ) { ?>
 								<li class="units-table-row-action shortcut-s" data-key-action="js">
-									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=restart&pm2_id=<?= $pm2_id; ?>" title="Restart" data-confirm-title="Restart" data-confirm-message="Are you sure you want to restart the <?= $name; ?> NodeApp?">
+									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=restart&pm2_id=<?= $pm2_id; ?>" title="Restart" data-confirm-title="Restart" data-confirm-message="Are you sure you want to restart <?= $name; ?>?">
 										<i class="fas fa-arrow-rotate-left icon-highlight"></i>
 										<span class="u-hide-desktop">Restart</span>
 									</a>
 								</li>
 								<li class="units-table-row-action shortcut-delete" data-key-action="js">
-									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=stop&pm2_id=<?= $pm2_id; ?>" title="Stop" data-confirm-title="Stop" data-confirm-message="Are you sure you want to stop the <?= $name; ?> NodeApp?">
+									<a class="units-table-row-action-link data-controls js-confirm-action" href="?p=nodeapp&action=stop&pm2_id=<?= $pm2_id; ?>" title="Stop" data-confirm-title="Stop" data-confirm-message="Are you sure you want to stop <?= $name; ?>?">
 										<i class="fas fa-stop icon-red"></i>
 										<span class="u-hide-desktop">Stop</span>
 									</a>
@@ -168,6 +178,21 @@
 			}
 		?>
 	</div>
+	<?php
+		if ( $removed_apps != '' ) {
+			$hcpp->nodeapp->delete_pm2_ids( $removed_ids );
+			?>
+			<br>
+			<div class="alert alert-info u-mb10" role="alert" style="max-width: 640px; margin: 0 auto;">
+				<i class="fas fa-info"></i>
+				<div>
+					<p class="u-mb10">Removed Missing NodeApp</p>
+					<?= $removed_apps; ?>
+				</div>
+			</div>
+			<?php
+		}
+	?>
 	<div class="units-table-footer">
 		<p>
 			<?= $i; ?> <?= $i == 1 ? 'NodeApp' : 'NodeApps'; ?>

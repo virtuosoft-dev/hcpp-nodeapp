@@ -19,6 +19,7 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function allocate_ports( $nodeapp_folder ) {
             global $hcpp;
+            $hcpp->log( "allocate_ports: $nodeapp_folder" );
             $parse = explode( '/', $nodeapp_folder );
             $user = $parse[2];
             $domain = $parse[4];
@@ -29,7 +30,11 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 
             // Allocate a port for each .config.js file found
-            $files = $this->get_config_files( $nodeapp_folder );          
+            if ( ! is_dir( $nodeapp_folder ) ) {
+                $hcpp->log( "allocate_ports: $nodeapp_folder is not a directory" );
+                return;
+            }
+            $files = $this->get_config_files( $nodeapp_folder );
             foreach($files as $file) {
 
                 // Get the name of the app from the filename
@@ -57,18 +62,140 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function __construct() {
             global $hcpp;
-            $hcpp->nodeapp = $this;
             $hcpp->add_action( 'v_change_web_domain_proxy_tpl', [ $this, 'v_change_web_domain_proxy_tpl'] );
             $hcpp->add_action( 'v_delete_web_domain_backend', [ $this, 'v_delete_web_domain_backend' ] );
+            $hcpp->add_action( 'v_delete_web_domain', [ $this, 'v_delete_web_domain_backend' ] );
             $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
             $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
             $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
+            $hcpp->add_action( 'v_update_sys_queue', [ $this, 'v_update_sys_queue' ] );
             $hcpp->add_action( 'hcpp_invoke_plugin', [ $this, 'hcpp_invoke_plugin' ] );
-            $hcpp->add_action( 'list_web_xpath', [ $this, 'list_web_xpath' ] );
+            $hcpp->add_action( 'hcpp_list_web_xpath', [ $this, 'hcpp_list_web_xpath' ] );
+            $hcpp->add_action( 'hcpp_list_updates_xpath', [ $this, 'hcpp_list_updates_xpath' ] );
+            $hcpp->add_action( 'hcpp_add_webapp_xpath', [ $this, 'hcpp_add_webapp_xpath' ] );
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
+            $hcpp->add_action( 'v_restart_proxy', [ $this, 'v_restart_proxy'] );
             $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
             $hcpp->add_custom_page( 'nodeapplog', __DIR__ . '/pages/nodeapplog.php' );
+        }
+
+        /**
+         * Do maintenance will shutdown all running apps, across all users that are
+         * using the specified major version of NodeJS and invoke the given callback.
+         * Lastly, after the callback has returned, the apps will be restarted.
+         * 
+         * @param callable $cb_maintenance The callback to invoke after all apps have been shutdown, a [user=>apps] array will be passed of stopped apps.
+         * @param array $majors The list of major nodejs versions to perform maintenance on; leave empty to shutdown apps from all versions.
+         * @param array $apps The list of apps to perform maintenance on; leave empty to shutdown all apps.
+         */
+        public function do_maintenance( $cb_maintenance = null, $majors = [], $apps = [] ) {
+
+            // Check if majors array is empty and get all majors as default
+            global $hcpp;
+            $hcpp->log( 'nodeapp do_maintenance' );
+            $hcpp->log( $majors );
+
+            if ( count( $majors ) == 0 ) {
+                $versions = $this->get_versions();
+                foreach( $versions as $v ) {
+                    $majors[] = $hcpp->getLeftMost( $v['installed'], '.' );
+                }
+            }
+
+            // Get user list of PM2 (bash) capable users
+            $all = $hcpp->run( 'v-list-users json' );
+            $users = [];
+            foreach( $all as $user => $details ) {
+                if ( $details['SHELL'] == 'bash' ) {
+                    $users[] = $user;
+                }
+            }
+
+            // Find any running apps using the major version across all users
+            $pm2_list = [];
+            foreach( $users as $user) {
+                $pm2 = $this->get_pm2_list( $user );
+                if ( is_null( $pm2 ) ) continue;
+                foreach( $pm2 as $p ) {
+                    if ( $p['pm2_env']['status'] == 'online' ) {
+                        $version = $p['pm2_env']['exec_interpreter'];
+                        $version = $hcpp->getRightMost( $version, '/v' );
+                        $version = $hcpp->getLeftMost( $version, '/' );
+                        $major = $hcpp->getLeftMost( $version, '.' );
+                        if ( in_array( $major, $majors ) ) {
+                            if ( count( $apps ) == 0 ) {
+                                $pm2_list[$user][] = $p['pm_id'];
+                            }else{
+
+                                // Filter by app name i.e. 'ghost' in 'ghost | test1.dev.pw'
+                                $name = $hcpp->getLeftMost( $p['name'], ' | ' );
+                                if ( in_array( $name, $apps ) ) {
+                                    $pm2_list[$user][] = $p['pm_id'];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Shutdown all apps by id for each user
+            foreach( $pm2_list as $user => $app_ids ) {
+                if ( count( $app_ids ) > 0 ) {
+                    $this->stop_pm2_ids( $app_ids, $user );
+                }
+            }
+
+            // Invoke the maintenance callback
+            if ( is_callable( $cb_maintenance ) ) {
+                $cb_maintenance( $pm2_list );
+            }
+
+            // Restart the stopped apps by id for each user
+            foreach( $pm2_list as $user => $app_ids ) {
+                if ( count( $app_ids ) > 0 ) {
+                    $this->restart_pm2_ids( $app_ids, $user );
+                }
+            }
+        }
+
+        /**
+         * Throw the nodeapp_nginx_modified event to allow other plugins to modify the nginx config files
+         */
+        public function do_nginx_modified( $restart = false ) {
+            global $hcpp;
+            $hcpp->log( "do_nginx_modified with restart: $restart" );
+            $lines = file( "/tmp/nodeapp_nginx_modified" );
+            unlink( "/tmp/nodeapp_nginx_modified" );
+
+            // Remove any duplicate lines
+            $lines = array_unique( $lines );
+            $conf_folders = [];
+            foreach( $lines as $line ) {
+                $line = explode( ' ', $line );
+                $user = $line[0];
+                $domain = $line[1];
+                $conf_folders[] = trim( "/home/$user/conf/web/$domain" );
+            }
+            $conf_folders = $hcpp->do_action( "nodeapp_nginx_confs_written", $conf_folders );
+            if ( $restart ) {
+                $hcpp->run( "v-restart-proxy" );
+            }
+        }
+
+        /**
+         * Delete the PM2 apps for the given user by ids.
+         * 
+         * @param array $pm2_ids The list of PM2 process ids to delete
+         */
+        public function delete_pm2_ids( $pm2_ids ) {
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+		    global $hcpp;
+            $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
+		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_delete_pm2_ids " . $username . ' ' . $pm2_ids ), true );
         }
 
         /**
@@ -121,8 +248,22 @@ if ( ! class_exists( 'NodeApp') ) {
             if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
                 unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
             }
-            
 
+            // Write port variables in nginx.hsts.conf_ports and nginx.forcessl.conf_ports
+            $file = "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports";
+            if ( file_exists( $file ) ) {
+                $content = "include /usr/local/hestia/data/hcpp/ports/$user/$domain.ports;";
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports", $content );
+                file_put_contents( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports", $content );
+            }else{
+                if ( file_exists( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" ) ) {
+                    unlink( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" );
+                }
+                if ( file_exists( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" ) ) {
+                    unlink( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" );
+                }
+            }
+            
             // Generate new nodeapp nginx config files
             $nginx = '';
             foreach($files as $file) {
@@ -155,48 +296,40 @@ if ( ! class_exists( 'NodeApp') ) {
                     'nginx' => $nginx
                 ];
 
-                // Allow other plugins to modify the subfolder nginx config files
-                $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_conf', $args );
+                // Allow other plugins to modify nginx conf_nodeapp files
+                $args = $hcpp->do_action( 'nodeapp_write_conf_nodeapp', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.conf_nodeapp", $nginx );
-
+                
                 // Overrite the proxy_hide_header in the SSL config file
                 $nginx .= "# Override prev. proxy_hide_header Upgrade\nadd_header Upgrade \$http_upgrade always;";
                 $args['nginx'] = $nginx;
-                $args = $hcpp->do_action( 'nodeapp_subfolder_nginx_ssl_conf', $args );
+                $args = $hcpp->do_action( 'nodeapp_write_ssl_conf_nodeapp', $args );
                 $nginx = $args['nginx'];
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp", $nginx );
             }
 
-            // Include port variables in nginx.hsts.conf_ports and nginx.forcessl.conf_ports
-            $file = "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports";
-            if ( file_exists( $file ) ) {
-                $content = "include /usr/local/hestia/data/hcpp/ports/$user/$domain.ports;";
-                file_put_contents( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports", $content );
-                file_put_contents( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports", $content );
-            }else{
-                if ( file_exists( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" ) ) {
-                    unlink( "/home/$user/conf/web/$domain/nginx.forcessl.conf_ports" );
-                }
-                if ( file_exists( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" ) ) {
-                    unlink( "/home/$user/conf/web/$domain/nginx.hsts.conf_ports" );
-                }
-            }
+            // Queue for single nginx files modified event
+            file_put_contents("/tmp/nodeapp_nginx_modified", "$user $domain\n", FILE_APPEND);
         }
 
         /**
          * Get the list of PM2 processes for the given user
          * 
-         * @param string $user The username to get the PM2 process list for
+         * @param string $user The username to get the PM2 process list for or the current HestiaCP user if not provided
          * @return array The list of PM2 processes for the given user
          */
-        public function get_pm2_list() {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function get_pm2_list( $user = '""' ) {
+            if ( $user == '""' && isset( $_SESSION ) ) {
+                $user = $_SESSION['user'];
+                if ( $_SESSION['look'] != '' ) {
+                    $user = $_SESSION['look'];
+                }
             }
 		    global $hcpp;
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $username), true );
+            $list = $hcpp->run("v-invoke-plugin nodeapp_pm2_jlist " . $user);
+            $list = '[' . $hcpp->delLeftMost( $list, '[' );
+            $list = json_decode( $list, true );
 		    return $list;
         }
         
@@ -214,17 +347,92 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Get the installed and latest versions of nvm managed NodeJS installs.
+         */
+        public function get_versions() {
+            global $hcpp;
+            $list = $hcpp->runuser( '', "nvm list --no-colors" );
+            $list = explode( "\n", $list );
+            $installed = [];
+            $latest = [];
+            $majors = [];
+            foreach( $list as $line ) {
+              if ( strpos( $line, 'lts/' ) !== false ) {
+                $line = $hcpp->getRightMost( $line, ' v' );
+                $line = $hcpp->getLeftMost( $line, ' ' );
+                $major = $hcpp->getLeftMost( $line, '.' );
+                if ( in_array( $major, $majors ) ) {
+                  if( !in_array( $line, $latest ) ) {
+                    $latest[] = $line;
+                  }  
+                }
+              }else{
+                if ( strpos( $line, '*' ) !== false ) {
+                  $line = $hcpp->getRightMost( $line, ' v' );
+                  $line = $hcpp->getLeftMost( $line, ' ' );
+                  if ( !in_array( $line, $installed ) ) {
+                    $installed[] = $line;
+                    $majors[] = $hcpp->getLeftMost( $line, '.' );
+                  }
+                }
+              }
+            }
+            // sort latest
+            usort( $latest, function( $a, $b ) {
+              return version_compare( $a, $b );
+            });
+            $versions = [];
+            $i = 0;
+            foreach( $installed as $version ) {
+              $versions[] = [
+                'installed' => $version,
+                'latest' => $latest[$i]
+              ];
+              $i++;
+            }
+            return $versions;
+        }
+
+        /**
+         * Restart proxy on modified nginx config files
+         */
+        public function hcpp_add_webapp_xpath( $xpath ) {
+            global $hcpp;
+            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                $hcpp->run( "v-invoke-plugin nodeapp_nginx_modified" );
+            }
+            return $xpath;
+        }
+
+        /**
          * Process the PM2 list command request
          */
         public function hcpp_invoke_plugin( $args ) {
             global $hcpp;
-            if (count($args) < 2) return $args; // Exit early
+            if ( count( $args ) < 2 ) return $args;
             $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
             switch ( $args[0] ) {
+                case 'nodeapp_get_versions':
+                    $hcpp->log( 'nodeapp_get_versions' );
+                    echo json_encode( $this->get_versions() );
+                    break;
                 case 'nodeapp_pm2_jlist':
                     echo $hcpp->runuser( $username, 'pm2 jlist' );
                     break;
 
+                case 'nodeapp_delete_pm2_ids':
+                    try {
+                        $pm2_ids = json_decode( $args[2], true );
+                    }catch( Exception $e ) {
+                        $pm2_ids = [];
+                    }
+                    $cmd = '';
+                    foreach( $pm2_ids as $id ) {
+                        $cmd .= 'pm2 delete ' . $id . '; ';
+                    }
+                    $cmd .= 'pm2 save --force';
+                    $hcpp->runuser( $username, $cmd );
+                    break;
                 case 'nodeapp_stop_pm2_ids':
                     try {
                         $pm2_ids = json_decode( $args[2], true );
@@ -237,6 +445,14 @@ if ( ! class_exists( 'NodeApp') ) {
                     }
                     $cmd .= 'pm2 save --force';
                     $hcpp->runuser( $username, $cmd );
+
+                    // Force remove the PM2 logs 
+                    $error_log_path = $hcpp->runuser( $username, 'pm2 info ' . $id . ' | grep "error log path"' );
+                    $error_log_path = '/' . $hcpp->delLeftMost( $error_log_path, '/' );
+                    $error_log_path = $hcpp->delRightMost( $error_log_path, '.log' ) . '.log';
+                    $out_log_path = str_replace( '-error.log', '-out.log', $error_log_path );
+                    $cmd = 'rm -f ' . $error_log_path . '; ' . 'rm -f ' . $out_log_path;
+                    $hcpp->runuser( $username, $cmd );
                     break;
 
                 case 'nodeapp_restart_pm2_ids':
@@ -247,14 +463,20 @@ if ( ! class_exists( 'NodeApp') ) {
                     }
                     
                     // Restart via config.js filename; find by pm2_id
-                    $list = json_decode( $hcpp->runuser( $username, 'pm2 jlist' ), true );
+                    $list = $hcpp->runuser( $username, 'pm2 jlist' );
+                    $list = '[' . $hcpp->delLeftMost( $list, '[' );
+                    $list = json_decode( $list, true );
                     $cmd = '';
                     foreach( $pm2_ids as $id ) {
                         foreach( $list as $app ) {
                             if ( $app['pm_id'] == $id ) {
-                                $app_config_js = $app['pm2_env']['pm_exec_path'];
-                                $app_config_js = preg_replace( '/\.js$/', '.config.js', $app_config_js );
-                                $cmd .= 'pm2 restart ' . $app_config_js . '; ';
+
+                                // Get the config.js file based on the script file
+                                $config = $hcpp->getLeftMost( $app['name'], ' | ' );
+                                $config = $app['pm2_env']['cwd'] . '/' . $config . '.config.js';
+                                if ( $config != '' ) {
+                                    $cmd .= 'pm2 restart ' . $config . '; ';
+                                }
                             }
                         }
                     }
@@ -265,13 +487,89 @@ if ( ! class_exists( 'NodeApp') ) {
                 case 'nodeapp_pm2_log':
                     $pm2_id = $args[2];
                     $pm2_id = filter_var( $pm2_id, FILTER_SANITIZE_NUMBER_INT );
-                    echo $hcpp->runuser( $username, 'pm2 logs --lines 4096 --nostream --raw ' . $pm2_id );
+                    echo $hcpp->runuser( $username, 'pm2 logs --lines 4096 --nostream --raw --no-color ' . $pm2_id . ' 2>&1' );
                     break;
-                    
+
+                case 'nodeapp_nginx_modified':
+
+                    // Debounce allows use to queue and delay under higher loads
+                    shell_exec( "nohup " . __DIR__ . "/nodeapp_debounce.sh > /dev/null 2>&1 &" );
+                    break;
+
+                case 'nodeapp_debounce':
+                    if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                        $this->do_nginx_modified( true );
+                    }
+                    break;
             }
             return $args;
         }
-        
+
+        public function hcpp_list_updates_xpath( $xpath ) {
+            global $hcpp;
+            $query = '//div[contains(@class, "units-table-row") and .//div[contains(@class, "units-table-cell") and contains(normalize-space(.), "hcpp-nodeapp")]]';
+
+            // Add the CSS to the head of the document
+            $css = 'div.units-table-cell .sub-unit {float:left;margin:-3px 5px 0px 15px;}';
+            $head = $xpath->query('//head')->item(0);
+            $style = $xpath->document->createElement('style', $css);
+            $head->appendChild($style);
+
+            // Inject list of NodeJS versions below hcpp-nodeapp in the updates list
+            $nodes = $xpath->query($query);          
+            if ($nodes->length > 0) {
+
+                // Get the list of NodeJS versions from the cache
+                $versions = $hcpp->run( 'v-invoke-plugin nodeapp_get_versions json' );
+                $firstNode = $nodes->item(0);
+                $arch = php_uname('m') == 'x86_64' ? 'amd64' : (php_uname('m') == 'aarch64' ? 'arm64' : 'unknown');
+                $html = '';
+                foreach ( $versions as $v ) {
+                    $installed = $v['installed'];
+                    $latest = $v['latest'];
+                    $major = $hcpp->getLeftMost( $installed, '.' );
+                    if ( $installed != $latest ) {
+                        $icon = '<i class="fas fa-triangle-exclamation icon-orange" title="Update available"></i>';
+                        $disabled = 'disabled ';
+                        $notice = '(update ' . $latest . ' available)';
+                    }else{
+                        $icon = '<i class="fas fa-check-circle icon-green" title="Package up-to-date"></i>';
+                        $disabled = '';
+                        $notice = '';
+                    }
+                    $html .= '<div class="units-table-row ' . $disabled . 'js-unit">
+                        <div class="units-table-cell units-table-heading-cell u-text-bold">
+                            <span class="u-hide-desktop">Package Names:</span>
+                            <div class="sub-unit">&#8627;</div>
+                            nvm-nodejs-v' . $major . '
+                        </div>
+                        <div class="units-table-cell">
+                            <span class="u-hide-desktop u-text-bold">Description:</span>
+                            NodeJS v' . $major . ' runtime ' . $notice . '
+                        </div>
+                        <div class="units-table-cell u-text-center-desktop">
+                            <span class="u-hide-desktop u-text-bold">Version:</span>
+                            ' . $installed . ' (' . $arch . ')
+                        </div>
+                        <div class="units-table-cell u-text-center-desktop">
+                            <span class="u-hide-desktop u-text-bold">Status:</span>
+                            ' . $icon . '
+                        </div>
+                    </div>';
+
+                }
+
+                // Create a and insert it after the first found node
+                $fragment = $xpath->document->createDocumentFragment();
+                $fragment->appendXML($html);
+                $firstNode->parentNode->insertBefore($fragment, $firstNode->nextSibling);
+            } else {
+                $hcpp->log("hcpp-nodeapp was not found in updates");
+            }
+
+            return $xpath;
+        }
+
         /**
          * Modify runuser to incorporate NVM
          */
@@ -323,34 +621,46 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
-         * Add the PM2 process list button to the HestiaCP UI
+         * Add the PM2 process list button to the HestiaCP UI, and restart proxy on modified nginx config files
          */
-        public function list_web_xpath( $xpath ) {
+        public function hcpp_list_web_xpath( $xpath ) {
 
-            // Locate the 'Add Web Domain' button
-            $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
+            // Check that user has bash shell access needed for PM2
+            global $hcpp;
+            $username = $_SESSION["user"];
+            if ($_SESSION["look"] != "") {
+                $username = $_SESSION["look"];
+            }
+            $detail = $hcpp->run( "v-list-user $username json" );
+            if ( isset( $detail[$username]['SHELL'] ) && $detail[$username]['SHELL'] == 'bash' ) {
+                // Locate the 'Add Web Domain' button
+                $addWebButton = $xpath->query( "//a[@href='/add/web/']" )->item(0);
 
-            if ( $addWebButton ) {
+                if ( $addWebButton ) {
 
-                // Create a new button element
-                $newButton = $xpath->document->createElement( 'a' );
-                $newButton->setAttribute( 'href', '?p=nodeapp' );
-                $newButton->setAttribute( 'class', 'button button-secondary' );
-                $newButton->setAttribute( 'title', 'NodaApps' );
+                    // Create a new button element
+                    $newButton = $xpath->document->createElement( 'a' );
+                    $newButton->setAttribute( 'href', '?p=nodeapp' );
+                    $newButton->setAttribute( 'class', 'button button-secondary' );
+                    $newButton->setAttribute( 'title', 'NodaApps' );
 
-                // Create the icon element
-                $icon = $xpath->document->createElement('span', '&#11042;');
-                $icon->setAttribute('style', 'font-size:x-large;color:green;margin:-2px 4px 0 0;');
+                    // Create the icon element
+                    $icon = $xpath->document->createElement('span', '&#11042;');
+                    $icon->setAttribute('style', 'font-size:x-large;color:green;margin:-2px 4px 0 0;');
 
-                // Create the text node
-                $text = $xpath->document->createTextNode( 'NodeApps' );
+                    // Create the text node
+                    $text = $xpath->document->createTextNode( 'NodeApps' );
 
-                // Append the icon and text to the new button
-                $newButton->appendChild( $icon );
-                $newButton->appendChild( $text );
+                    // Append the icon and text to the new button
+                    $newButton->appendChild( $icon );
+                    $newButton->appendChild( $text );
 
-                // Insert the new button next to the existing one
-                $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
+                    // Insert the new button next to the existing one
+                    $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
+                }
+            }
+            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                $hcpp->run( "v-invoke-plugin nodeapp_nginx_modified" );
             }
             return $xpath;
         }
@@ -359,15 +669,20 @@ if ( ! class_exists( 'NodeApp') ) {
          * Restart the PM2 apps for the given user by ids.
          * 
          * @param array $pm2_ids The list of PM2 process ids to restart
+         * @param string $user The username to restart the PM2 processes for or the current HestiaCP user if not provided
          */
-        public function restart_pm2_ids( $pm2_ids) {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function restart_pm2_ids( $pm2_ids, $user = '""' ) {
+            if ( $user == '""' && isset( $_SESSION ) ) {
+                $user = $_SESSION['user'];
+                if ( $_SESSION['look'] != '' ) {
+                    $user = $_SESSION['look'];
+                }
             }
 		    global $hcpp;
+            $hcpp->log( 'nodeapp restart_pm2_ids for user: ' . $user );
+            $hcpp->log( $pm2_ids );
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $username . ' ' . $pm2_ids, true ) );
+		    $hcpp->run("v-invoke-plugin nodeapp_restart_pm2_ids " . $user . ' ' . $pm2_ids );
         }
 
         /**
@@ -391,6 +706,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 // Add app to startup
                 $cmd .= "; pm2 start $file ";
             }
+
+            
             if ( strpos( $cmd, '; pm2 start ' ) ) {
                 $cmd .= '; pm2 save --force ';
                 $args = [
@@ -409,15 +726,20 @@ if ( ! class_exists( 'NodeApp') ) {
          * Stop the PM2 apps for the given user by ids.
          * 
          * @param array $pm2_ids The list of PM2 process ids to stop
+         * @param string $user The username to stop the PM2 processes for or the current HestiaCP user if not provided
          */
-        public function stop_pm2_ids( $pm2_ids) {
-            $username = $_SESSION["user"];
-            if ($_SESSION["look"] != "") {
-                $username = $_SESSION["look"];
+        public function stop_pm2_ids( $pm2_ids, $user = '""' ) {
+            if ( $user == '""' && isset( $_SESSION ) ) {
+                $user = $_SESSION['user'];
+                if ( $_SESSION['look'] != '' ) {
+                    $user = $_SESSION['look'];
+                }
             }
 		    global $hcpp;
+            $hcpp->log( 'nodeapp stop_pm2_ids for user: ' . $user );
+            $hcpp->log( $pm2_ids );
             $pm2_ids = escapeshellarg( json_encode( $pm2_ids ) );
-		    $list = json_decode( $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $username . ' ' . $pm2_ids, true ) );
+		    $hcpp->run("v-invoke-plugin nodeapp_stop_pm2_ids " . $user . ' ' . $pm2_ids );
         }
 
         /**
@@ -459,6 +781,44 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Update all NVM managed NodeJS versions and global packages;
+         * gracefully stop all running PM2 apps using the major version,
+         * update NodeJS, and restart the stopped apps for each user.
+         */
+        public function update_all() {
+
+            // Get list of new versions
+            global $hcpp;
+            $versions = $this->get_versions();
+            $updates = [];
+            foreach( $versions as $v ) {
+
+                // Find any nodejs versions that need to be updated
+                if ( $v['installed'] != $v['latest'] ) {
+                    $updates[] = $v;
+                    $majors[] = $hcpp->getLeftMost( $v['installed'], '.' );
+                }
+            }
+
+            // Perform maintenance only if updates are available
+            if ( count( $updates ) == 0 ) {
+                return;
+            }
+
+            // Perform the maintenance tasks
+            $this->do_maintenance( function( $stopped ) use ( $hcpp, $updates ) {
+                // Update NodeJS, npm, and re-install global packages
+                foreach( $updates as $v ) {
+                    $cmd = 'nvm install ' . $v['latest'] . ' && nvm use ' . $v['latest'] . ' && npm install -g npm';
+                    $cmd .= ' && nvm reinstall-packages ' . $v['installed'];
+                    $cmd .= ' && nvm uninstall ' . $v['installed'];
+                    $cmd = $hcpp->do_action( 'nodeapp_update_nodejs', $cmd );
+                    $hcpp->runuser( '', $cmd );
+                }
+            }, $majors );
+        }
+
+        /**
          * On proxy template change, copy basic nodeapp, allocate ports, and start apps
          */
         public function v_change_web_domain_proxy_tpl( $args ) {
@@ -467,45 +827,33 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $proxy = $args[2];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
-            
-            if ( $proxy == 'NodeApp' ) {
 
-                if ( !is_dir( $nodeapp_folder) ) {
+            if ( !is_dir( $nodeapp_folder) && $proxy == 'NodeApp' ) {
 
-                    // Copy initial nodeapp folder
-                    $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
-                    $args = [
-                        'user' => $user,
-                        'domain' => $domain,
-                        'proxy' => $proxy,
-                        'nodeapp_folder' => $nodeapp_folder
-                    ];
-                    $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
-                    $nodeapp_folder = $args['nodeapp_folder'];
-                    chmod( $nodeapp_folder, 0751 );
+                // Copy initial nodeapp folder
+                $hcpp->copy_folder( __DIR__ . '/nodeapp', $nodeapp_folder, $user );
+                $args = [
+                    'user' => $user,
+                    'domain' => $domain,
+                    'proxy' => $proxy,
+                    'nodeapp_folder' => $nodeapp_folder
+                ];
+                $args = $hcpp->do_action( 'nodeapp_copy_files', $args );
+                $nodeapp_folder = $args['nodeapp_folder'];
+                chmod( $nodeapp_folder, 0755 );
 
-                    // Install dependencies
-                    $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
-                    $args['cmd'] = $cmd;
-                    $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
-                    $hcpp->runuser( $user, $args['cmd'] );
-                }
-
-                // Shutdown stray apps and startup root and subfolder apps
-                $this->shutdown_apps( $nodeapp_folder );
-                $this->allocate_ports( $nodeapp_folder );
-                $this->generate_nginx_files( $nodeapp_folder );
-                $this->startup_apps( $nodeapp_folder );
-            }else {
-
-                // Shutdown stray apps and only startup subfolder apps
-                if ( is_dir( $nodeapp_folder) ) {
-                    $this->shutdown_apps( $nodeapp_folder );
-                    $this->allocate_ports( $nodeapp_folder );
-                    $this->generate_nginx_files( $nodeapp_folder, false );
-                    $this->startup_apps( $nodeapp_folder, false );
-                }
+                // Install dependencies
+                $cmd = 'cd "' . $nodeapp_folder . '" && npm install';
+                $args['cmd'] = $cmd;
+                $args = $hcpp->do_action( 'nodeapp_install_dependencies', $args );
+                $hcpp->runuser( $user, $args['cmd'] );
             }
+
+            // Shutdown stray apps and startup root and/or subfolder apps
+            $this->shutdown_apps( $nodeapp_folder );
+            $this->allocate_ports( $nodeapp_folder );
+            $this->generate_nginx_files( $nodeapp_folder, ($proxy == 'NodeApp') );
+            $this->startup_apps( $nodeapp_folder,  ($proxy == 'NodeApp') );
         }
 
         /**
@@ -517,6 +865,17 @@ if ( ! class_exists( 'NodeApp') ) {
             $domain = $args[1];
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
+            unlink( "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports" );
+        }
+
+        /**
+         * Notify of any changes to the nginx config files
+         */
+        public function v_restart_proxy( $args ) {
+            if ( file_exists( '/tmp/nodeapp_nginx_modified' ) ) {
+                $this->do_nginx_modified( false );
+            }
+            return $args;
         }
 
         /**
@@ -535,7 +894,6 @@ if ( ! class_exists( 'NodeApp') ) {
             if ( file_exists( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" ) ) {
                 unlink( "/home/$user/conf/web/$domain/nginx.conf_nodeapp" );
             }
-            
             $this->shutdown_apps( $nodeapp_folder );
             return $args;
         }
@@ -559,6 +917,19 @@ if ( ! class_exists( 'NodeApp') ) {
             }
             return $args;
         }
+
+        /**
+         * Check daily to update our NVM managed and installed NodeJS versions global packages.
+         */
+        public function v_update_sys_queue( $args ) {
+            global $hcpp;
+            if ( ! (isset( $args[0] ) && trim( $args[0] ) == 'daily') ) return $args;
+            if ( strpos( $hcpp->run('v-list-sys-hestia-autoupdate'), 'Enabled') == false ) return $args;
+            $this->update_all();
+            $hcpp->do_action( 'nodeapp_autoupdate' );
+            return $args;
+        }
     }
-    new NodeApp();
+    global $hcpp;
+    $hcpp->register_plugin( NodeApp::class );
 }
