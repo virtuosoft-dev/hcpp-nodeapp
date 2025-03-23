@@ -926,6 +926,7 @@ if ( ! class_exists( 'NodeApp') ) {
             if ( ! (isset( $args[0] ) && trim( $args[0] ) == 'daily') ) return $args;
             if ( strpos( $hcpp->run('v-list-sys-hestia-autoupdate'), 'Enabled') == false ) return $args;
             $this->update_all();
+            $hcpp->do_action( 'nodeapp_autoupdate' );
             return $args;
         }
     }
