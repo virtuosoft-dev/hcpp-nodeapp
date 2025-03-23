@@ -85,6 +85,7 @@ the NodeApp. Developers can hook and implement their own NodeApp using these act
 * **nodeapp_maintenance_start** - *occurs before a maintenance event starts.*
 * **nodeapp_maintenance_start** - *occurs after a maintenance event ends.*
 * **nodeapp_update_nodejs** - *occurs when a nodejs version is about to be updated.*
+* **nodeapp_autoupdate** - *occurs daily if hestia autoupdates is enabled; ideal time perform updates (do_maintenance) tasks.*
 
 
 ## Support the creator
