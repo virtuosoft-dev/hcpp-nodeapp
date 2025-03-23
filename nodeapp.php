@@ -30,7 +30,10 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 
             // Allocate a port for each .config.js file found
-            if ( ! is_dir( $nodeapp_folder ) ) return;
+            if ( ! is_dir( $nodeapp_folder ) ) {
+                $hcpp->log( "allocate_ports: $nodeapp_folder is not a directory" );
+                return;
+            }
             $files = $this->get_config_files( $nodeapp_folder );
             foreach($files as $file) {
 
@@ -82,10 +85,11 @@ if ( ! class_exists( 'NodeApp') ) {
          * using the specified major version of NodeJS and invoke the given callback.
          * Lastly, after the callback has returned, the apps will be restarted.
          * 
-         * @param array $majors The list of major versions to perform maintenance on; leave empty to shutdown all running apps.
          * @param callable $cb_maintenance The callback to invoke after all apps have been shutdown, a [user=>apps] array will be passed of stopped apps.
+         * @param array $majors The list of major nodejs versions to perform maintenance on; leave empty to shutdown apps from all versions.
+         * @param array $apps The list of apps to perform maintenance on; leave empty to shutdown all apps.
          */
-        public function do_maintenance( $majors = [], $cb_maintenance = null ) {
+        public function do_maintenance( $cb_maintenance = null, $majors = [], $apps = [] ) {
 
             // Check if majors array is empty and get all majors as default
             global $hcpp;
@@ -100,7 +104,6 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 
             // Get user list of PM2 (bash) capable users
-            global $hcpp;
             $all = $hcpp->run( 'v-list-users json' );
             $users = [];
             foreach( $all as $user => $details ) {
@@ -121,12 +124,20 @@ if ( ! class_exists( 'NodeApp') ) {
                         $version = $hcpp->getLeftMost( $version, '/' );
                         $major = $hcpp->getLeftMost( $version, '.' );
                         if ( in_array( $major, $majors ) ) {
-                            $pm2_list[$user][] = $p['pm_id'];
+                            if ( count( $apps ) == 0 ) {
+                                $pm2_list[$user][] = $p['pm_id'];
+                            }else{
+
+                                // Filter by app name i.e. 'ghost' in 'ghost | test1.dev.pw'
+                                $name = $hcpp->getLeftMost( $p['name'], ' | ' );
+                                if ( in_array( $name, $apps ) ) {
+                                    $pm2_list[$user][] = $p['pm_id'];
+                                }
+                            }
                         }
                     }
                 }
             }
-            $pm2_list = $hcpp->do_action( 'nodeapp_maintenance_start', $pm2_list );
 
             // Shutdown all apps by id for each user
             foreach( $pm2_list as $user => $app_ids ) {
@@ -146,7 +157,6 @@ if ( ! class_exists( 'NodeApp') ) {
                     $this->restart_pm2_ids( $app_ids, $user );
                 }
             }
-            $pm2_list = $hcpp->do_action( 'nodeapp_maintenance_end', $pm2_list );
         }
 
         /**
@@ -796,7 +806,7 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 
             // Perform the maintenance tasks
-            $this->do_maintenance( $majors, function( $stopped ) use ( $hcpp, $updates ) {
+            $this->do_maintenance( function( $stopped ) use ( $hcpp, $updates ) {
                 // Update NodeJS, npm, and re-install global packages
                 foreach( $updates as $v ) {
                     $cmd = 'nvm install ' . $v['latest'] . ' && nvm use ' . $v['latest'] . ' && npm install -g npm';
@@ -805,7 +815,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     $cmd = $hcpp->do_action( 'nodeapp_update_nodejs', $cmd );
                     $hcpp->runuser( '', $cmd );
                 }
-            });
+            }, $majors );
         }
 
         /**
@@ -913,7 +923,7 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function v_update_sys_queue( $args ) {
             global $hcpp;
-            if ( ! (isset( $args[0] ) && $args[0] == 'daily ') ) return $args;
+            if ( ! (isset( $args[0] ) && trim( $args[0] ) == 'daily') ) return $args;
             if ( strpos( $hcpp->run('v-list-sys-hestia-autoupdate'), 'Enabled') == false ) return $args;
             $this->update_all();
             return $args;
