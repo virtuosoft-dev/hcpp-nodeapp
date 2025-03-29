@@ -310,7 +310,15 @@ if ( ! class_exists( 'NodeApp') ) {
             }
 
             // Queue for single nginx files modified event
-            file_put_contents("/tmp/nodeapp_nginx_modified", "$user $domain\n", FILE_APPEND);
+            // Check if the file exists and doesn't already have $user $domain in it
+            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                $content = file_get_contents( "/tmp/nodeapp_nginx_modified" );
+                if ( strpos( $content, "$user $domain" ) === false ) {
+                    file_put_contents( "/tmp/nodeapp_nginx_modified", "$user $domain\n" );
+                }
+            }else{
+                file_put_contents("/tmp/nodeapp_nginx_modified", "$user $domain\n", FILE_APPEND);
+            }
         }
 
         /**
@@ -409,8 +417,9 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function hcpp_invoke_plugin( $args ) {
             global $hcpp;
-            if ( count( $args ) < 2 ) return $args;
-            $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
+            if ( isset( $args[1] ) ) {
+                $username = preg_replace( "/[^a-zA-Z0-9-_]+/", "", $args[1] ); // Sanitized username
+            }
             switch ( $args[0] ) {
                 case 'nodeapp_get_versions':
                     $hcpp->log( 'nodeapp_get_versions' );
@@ -493,7 +502,9 @@ if ( ! class_exists( 'NodeApp') ) {
                 case 'nodeapp_nginx_modified':
 
                     // Debounce allows use to queue and delay under higher loads
-                    shell_exec( "nohup " . __DIR__ . "/nodeapp_debounce.sh > /dev/null 2>&1 &" );
+                    $hcpp->log( $cmd );
+                    $cmd = "nohup " . __DIR__ . "/nodeapp_debounce.sh > /dev/null 2>&1 &";
+                    $hcpp->log( shell_exec( $cmd ) );
                     break;
 
                 case 'nodeapp_debounce':
