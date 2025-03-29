@@ -24,3 +24,4 @@ done
 
 # Lockfile will be removed automatically due to trap
 exit 0
+
