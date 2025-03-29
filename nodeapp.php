@@ -76,6 +76,13 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'hcpp_rebooted', [ $this, 'hcpp_rebooted' ] );
             $hcpp->add_action( 'hcpp_runuser', [ $this, 'hcpp_runuser' ] );
             $hcpp->add_action( 'v_restart_proxy', [ $this, 'v_restart_proxy'] );
+
+            // Rewrite config files on ssl related events
+            $hcpp->add_action( 'v_add_web_domain_ssl', [ $this, 'update_nginx_files'] );
+            $hcpp->add_action( 'v_delete_web_domain_ssl', [ $this, 'update_nginx_files'] );
+            $hcpp->add_action( 'v_add_web_domain_ssl_force', [ $this, 'update_nginx_files'] );
+            $hcpp->add_action( 'v_delete_web_domain_ssl_force', [ $this, 'update_nginx_files'] );
+
             $hcpp->add_custom_page( 'nodeapp', __DIR__ . '/pages/nodeapp.php' );
             $hcpp->add_custom_page( 'nodeapplog', __DIR__ . '/pages/nodeapplog.php' );
         }
@@ -827,6 +834,19 @@ if ( ! class_exists( 'NodeApp') ) {
                     $hcpp->runuser( '', $cmd );
                 }
             }, $majors );
+        }
+
+        /**
+         * Update the nginx config files for the given user and domain
+         */
+        public function update_nginx_files( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            if ( is_dir( $nodeapp_folder) ) {
+                $this->generate_nginx_files( $nodeapp_folder, true );
+            }
         }
 
         /**
