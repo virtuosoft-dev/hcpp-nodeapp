@@ -1,7 +1,7 @@
 # hcpp-nodeapp
 A plugin for Hestia Control Panel (via [hestiacp-pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable)) that enables hosting generic NodeJS based applications with control via [PM2 (Process Manager)](https://pm2.keymetrics.io). With this plugin installed, user accounts can host their own NodeJS applications. A simple [Hello World! ExpressJS application](https://expressjs.com/en/starter/hello-world.html) is included as the default NodeApp application. [NVM (NodeJS Version Manager)](https://github.com/nvm-sh/nvm) is also included and the default PM2 configuration file will automatically select the proper NodeJS version based on the simple .nvmrc file. 
 
-Version 2.0.0 now includes a (PM2 based) process list UI within HestiaCP that lists all NodeApps for a given user account under the Web tab (see #1 in screenshot below). Additional controls have been added to allow for Start, Stop, and Restart with bulk actions and viewing of the log output for each NodeApp process (see #2 in screenshot below).
+Version 2.X now includes a (PM2 based) process list UI within HestiaCP that lists all NodeApps for a given user account under the Web tab (see #1 in screenshot below). Additional controls have been added to allow for Start, Stop, and Restart with bulk actions and viewing of the log output for each NodeApp process (see #2 in screenshot below).
 
 <br><img src='images/nodeapp-pm2.jpg' width='100%'><br>
 <sub>Figure 1 - NodeApp process list, control, and logs</sub>
@@ -19,11 +19,11 @@ NodeApp also includes an updated administrator's [Server Settings -> Updates]() 
 
 &nbsp;
 ## Installation
-HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Clone the latest release version (i.e. replace **v2.0.0** below with the latest release version) to the nodeapp folder:
+HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Clone the latest release version (i.e. replace **v2.0.3** below with the latest release version) to the nodeapp folder:
 
 ```
 cd /usr/local/hestia/plugins
-sudo git clone --branch v2.0.0 https://github.com/virtuosoft-dev/hcpp-nodeapp nodeapp
+sudo git clone --branch v2.0.3 https://github.com/virtuosoft-dev/hcpp-nodeapp nodeapp
 ```
 
 Note: It is important that the destination plugin folder name is `nodeapp`.
