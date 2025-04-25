@@ -65,6 +65,7 @@ if ( ! class_exists( 'NodeApp') ) {
             $hcpp->add_action( 'v_change_web_domain_proxy_tpl', [ $this, 'v_change_web_domain_proxy_tpl'] );
             $hcpp->add_action( 'v_delete_web_domain_backend', [ $this, 'v_delete_web_domain_backend' ] );
             $hcpp->add_action( 'v_delete_web_domain', [ $this, 'v_delete_web_domain_backend' ] );
+            $hcpp->add_action( 'v_rebuild_web_domain', [ $this, 'v_rebuild_web_domain' ] );
             $hcpp->add_action( 'v_suspend_web_domain', [ $this, 'v_suspend_web_domain' ] );
             $hcpp->add_action( 'v_unsuspend_web_domain', [ $this, 'v_unsuspend_domain' ] ); // Bulk unsuspend domains only throws this event
             $hcpp->add_action( 'v_unsuspend_domain', [ $this, 'v_unsuspend_domain' ] ); // Individually unsuspend domain only throws this event
@@ -897,6 +898,20 @@ if ( ! class_exists( 'NodeApp') ) {
             $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
             $this->shutdown_apps( $nodeapp_folder );
             unlink( "/usr/local/hestia/data/hcpp/ports/$user/$domain.ports" );
+        }
+
+        /**
+         * Rebuild the nginx config files for the given user and domain
+         */
+        public function v_rebuild_web_domain( $args ) {
+            global $hcpp;
+            $user = $args[0];
+            $domain = $args[1];
+            $nodeapp_folder = "/home/$user/web/$domain/nodeapp";
+            if ( is_dir( $nodeapp_folder) ) {
+                $this->generate_nginx_files( $nodeapp_folder, true );
+            }            
+            return $args;
         }
 
         /**
