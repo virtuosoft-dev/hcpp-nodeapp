@@ -510,8 +510,8 @@ if ( ! class_exists( 'NodeApp') ) {
                 case 'nodeapp_nginx_modified':
 
                     // Debounce allows use to queue and delay under higher loads
-                    $hcpp->log( $cmd );
                     $cmd = "nohup " . __DIR__ . "/nodeapp_debounce.sh > /dev/null 2>&1 &";
+                    $hcpp->log( $cmd );
                     $hcpp->log( shell_exec( $cmd ) );
                     break;
 
