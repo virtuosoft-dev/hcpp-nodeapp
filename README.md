@@ -23,7 +23,7 @@ HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control 
 
 ```
 cd /usr/local/hestia/plugins
-sudo git clone --branch v2.0.3 https://github.com/virtuosoft-dev/hcpp-nodeapp nodeapp
+sudo git clone https://github.com/sharklatan/hcpp-nodeapp nodeapp
 ```
 
 Note: It is important that the destination plugin folder name is `nodeapp`.
