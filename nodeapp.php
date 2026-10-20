@@ -14,6 +14,9 @@
 if ( ! class_exists( 'NodeApp') ) {
     class NodeApp {
 
+        // Queue of "user domain" lines with modified nginx files; kept out of world-writable /tmp
+        const NGINX_MODIFIED = '/usr/local/hestia/data/hcpp/nodeapp_nginx_modified';
+
         /**
          * Scan the nodeapp folder for .config.js files and allocate a port for each
          */
@@ -24,12 +27,12 @@ if ( ! class_exists( 'NodeApp') ) {
             $user = $parse[2];
             $domain = $parse[4];
 
-            // Ensure ports directory exists for this user
+            // Ensure ports directory exists for this user; root owned like Pluginable's allocate_port,
+            // which makes each .ports file readable only by its user
             $ports_dir = "/usr/local/hestia/data/hcpp/ports/$user";
             if ( ! is_dir( $ports_dir ) ) {
                 $hcpp->log( "allocate_ports: creating ports dir $ports_dir" );
-                // Attempt to create directory and set ownership; ignore failures
-                $hcpp->run( "mkdir -p $ports_dir && chown -R admin:admin /usr/local/hestia/data/hcpp/ports || true" );
+                @mkdir( $ports_dir, 0755, true );
             }
 
             // Wipe the existing ports for this domain
@@ -181,8 +184,17 @@ if ( ! class_exists( 'NodeApp') ) {
         public function do_nginx_modified( $restart = false ) {
             global $hcpp;
             $hcpp->log( "do_nginx_modified with restart: $restart" );
-            $lines = file( "/tmp/nodeapp_nginx_modified" );
-            unlink( "/tmp/nodeapp_nginx_modified" );
+
+            // Take the queue atomically so entries appended while processing aren't lost
+            $queue = self::NGINX_MODIFIED . '.processing';
+            if ( ! file_exists( self::NGINX_MODIFIED ) || ! rename( self::NGINX_MODIFIED, $queue ) ) {
+                return;
+            }
+            $fp = fopen( $queue, 'r' );
+            flock( $fp, LOCK_EX ); // Wait for any append already holding the lock
+            $lines = file( $queue, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+            unlink( $queue );
+            fclose( $fp );
 
             // Remove any duplicate lines
             $lines = array_unique( $lines );
@@ -325,15 +337,10 @@ if ( ! class_exists( 'NodeApp') ) {
                 file_put_contents( "/home/$user/conf/web/$domain/nginx.ssl.conf_nodeapp", $nginx );
             }
 
-            // Queue for single nginx files modified event
-            // Check if the file exists and doesn't already have $user $domain in it
-            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
-                $content = file_get_contents( "/tmp/nodeapp_nginx_modified" );
-                if ( strpos( $content, "$user $domain" ) === false ) {
-                    file_put_contents( "/tmp/nodeapp_nginx_modified", "$user $domain\n" );
-                }
-            }else{
-                file_put_contents("/tmp/nodeapp_nginx_modified", "$user $domain\n", FILE_APPEND);
+            // Queue for single nginx files modified event; append $user $domain if not already queued
+            $queued = file_exists( self::NGINX_MODIFIED ) ? file( self::NGINX_MODIFIED, FILE_IGNORE_NEW_LINES ) : [];
+            if ( ! in_array( "$user $domain", $queued ) ) {
+                file_put_contents( self::NGINX_MODIFIED, "$user $domain\n", FILE_APPEND | LOCK_EX );
             }
         }
 
@@ -375,45 +382,31 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function get_versions() {
             global $hcpp;
-            $list = $hcpp->runuser( '', "nvm list --no-colors" );
-            $list = explode( "\n", $list );
-            $installed = [];
+
+            // Find the latest available version of each major from a single remote listing
             $latest = [];
-            $majors = [];
-            foreach( $list as $line ) {
-              if ( strpos( $line, 'lts/' ) !== false ) {
-                $line = $hcpp->getRightMost( $line, ' v' );
-                $line = $hcpp->getLeftMost( $line, ' ' );
-                $major = $hcpp->getLeftMost( $line, '.' );
-                if ( in_array( $major, $majors ) ) {
-                  if( !in_array( $line, $latest ) ) {
-                    $latest[] = $line;
-                  }  
+            $remote = $hcpp->runuser( '', "nvm ls-remote --no-colors" );
+            preg_match_all( '/v(\d+)\.(\d+)\.(\d+)/', $remote, $matches, PREG_SET_ORDER );
+            foreach( $matches as $m ) {
+                $version = "$m[1].$m[2].$m[3]";
+                if ( ! isset( $latest[$m[1]] ) || version_compare( $version, $latest[$m[1]], '>' ) ) {
+                    $latest[$m[1]] = $version;
                 }
-              }else{
-                if ( strpos( $line, '*' ) !== false ) {
-                  $line = $hcpp->getRightMost( $line, ' v' );
-                  $line = $hcpp->getLeftMost( $line, ' ' );
-                  if ( !in_array( $line, $installed ) ) {
-                    $installed[] = $line;
-                    $majors[] = $hcpp->getLeftMost( $line, '.' );
-                  }
-                }
-              }
             }
-            // sort latest
-            usort( $latest, function( $a, $b ) {
-              return version_compare( $a, $b );
-            });
+
+            // Read installed versions from disk; if the remote listing failed, report as up-to-date
             $versions = [];
-            $i = 0;
-            foreach( $installed as $version ) {
-              $versions[] = [
-                'installed' => $version,
-                'latest' => $latest[$i]
-              ];
-              $i++;
+            foreach( glob( '/opt/nvm/versions/node/v*', GLOB_ONLYDIR ) as $dir ) {
+                $installed = ltrim( basename( $dir ), 'v' );
+                $major = $hcpp->getLeftMost( $installed, '.' );
+                $versions[] = [
+                    'installed' => $installed,
+                    'latest' => $latest[$major] ?? $installed
+                ];
             }
+            usort( $versions, function( $a, $b ) {
+                return version_compare( $a['installed'], $b['installed'] );
+            });
             return $versions;
         }
 
@@ -422,7 +415,7 @@ if ( ! class_exists( 'NodeApp') ) {
          */
         public function hcpp_add_webapp_xpath( $xpath ) {
             global $hcpp;
-            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+            if ( file_exists( self::NGINX_MODIFIED ) ) {
                 $hcpp->run( "v-invoke-plugin nodeapp_nginx_modified" );
             }
             return $xpath;
@@ -524,7 +517,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     break;
 
                 case 'nodeapp_debounce':
-                    if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+                    if ( file_exists( self::NGINX_MODIFIED ) ) {
                         $this->do_nginx_modified( true );
                     }
                     break;
@@ -611,39 +604,41 @@ if ( ! class_exists( 'NodeApp') ) {
          * Check if system has rebooted and restart apps
          */
         public function hcpp_rebooted() {
-
-            // Wait up to 60 additional seconds for MySQL to start
-            $i = 0;
-            while ( $i < 60 ) {
-                $i++;
-                $mysql = shell_exec( 'systemctl is-active mysql' );
-                if ( trim( $mysql ) == 'active' ) {
-                    break;
-                }
-                sleep( 1 );
-            }
-
-            // Restart all PM2 apps for all user accounts
-            $users = scandir('/home');
             global $hcpp;
-            $cmd = '';
-            foreach ( $users as $user ) {
-                // Ignore hidden files/folders and system folders
-                if ( $user == '.' || $user == '..' || $user == 'lost+found' || $user == 'systemd' ) {
-                    continue;
-                }
-                
-                // Check if the .pm2 folder exists in the user's home directory
-                if ( is_dir( "/home/$user/.pm2" ) ) {
 
-                    // Restart any pm2 processes
-                    $cmd .= 'runuser -s /bin/bash -l ' . $user . ' -c "cd /home/' . $user . ' && ';
-                    $cmd .= 'export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect"' . "\n";
+            // Wait up to 60 additional seconds for MySQL/MariaDB to start, if either is enabled
+            exec( 'systemctl is-enabled --quiet mysql || systemctl is-enabled --quiet mariadb', $out, $enabled );
+            if ( $enabled == 0 ) {
+                $active = 1;
+                for ( $i = 0; $i < 60; $i++ ) {
+                    exec( 'systemctl is-active --quiet mysql || systemctl is-active --quiet mariadb', $out, $active );
+                    if ( $active == 0 ) break;
+                    sleep( 1 );
+                }
+                if ( $active != 0 ) {
+                    $hcpp->log( 'nodeapp hcpp_rebooted: database not active after 60 seconds; resurrecting apps anyway' );
                 }
             }
+
+            // Restart PM2 apps for each HestiaCP user that has used PM2
+            $users = $hcpp->run( 'v-list-users json' );
+            if ( ! is_array( $users ) ) {
+                $hcpp->log( 'nodeapp hcpp_rebooted: unable to list users' );
+                return;
+            }
+            $cmd = '';
+            foreach ( array_keys( $users ) as $user ) {
+                if ( ! is_dir( "/home/$user/.pm2" ) ) continue;
+                $cmd .= 'runuser -s /bin/bash -l ' . escapeshellarg( $user ) . ' -c ';
+                $cmd .= escapeshellarg( 'cd ~ && export NVM_DIR=/opt/nvm && source /opt/nvm/nvm.sh && pm2 resurrect' ) . "\n";
+            }
+
+            // Allow other plugins to filter the commands; run and log each line separately
             $cmd = $hcpp->do_action( 'nodeapp_resurrect_apps', $cmd );
-            if ( trim( $cmd ) != '' )  {
-                $hcpp->log( shell_exec( $cmd ) );
+            foreach ( explode( "\n", $cmd ) as $line ) {
+                if ( trim( $line ) == '' ) continue;
+                $hcpp->log( "nodeapp hcpp_rebooted: $line" );
+                $hcpp->log( shell_exec( $line . ' 2>&1' ) );
             }
         }
 
@@ -686,7 +681,7 @@ if ( ! class_exists( 'NodeApp') ) {
                     $addWebButton->parentNode->insertBefore( $newButton, $addWebButton->nextSibling );
                 }
             }
-            if ( file_exists( "/tmp/nodeapp_nginx_modified" ) ) {
+            if ( file_exists( self::NGINX_MODIFIED ) ) {
                 $hcpp->run( "v-invoke-plugin nodeapp_nginx_modified" );
             }
             return $xpath;
@@ -818,6 +813,7 @@ if ( ! class_exists( 'NodeApp') ) {
             global $hcpp;
             $versions = $this->get_versions();
             $updates = [];
+            $majors = [];
             foreach( $versions as $v ) {
 
                 // Find any nodejs versions that need to be updated
@@ -930,7 +926,7 @@ if ( ! class_exists( 'NodeApp') ) {
          * Notify of any changes to the nginx config files
          */
         public function v_restart_proxy( $args ) {
-            if ( file_exists( '/tmp/nodeapp_nginx_modified' ) ) {
+            if ( file_exists( self::NGINX_MODIFIED ) ) {
                 $this->do_nginx_modified( false );
             }
             return $args;

@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# Remove NodeJS, NVM, PM2, and grunt
+# Remove NVM, NodeJS, and PM2 (the system NodeJS in /usr/bin is left untouched)
 rm -rf /opt/nvm
 
-# Update global bash.bashrc
-sed '/^# begin hcpp-nodeapp$/,/^# end hcpp-nodeapp$/d' /etc/bash.bashrc > temp.txt && mv temp.txt /etc/bash.bashrc
+# Remove shell environment
+rm -f /etc/profile.d/nvm.sh
+sed -i '/^# begin hcpp-nodeapp$/,/^# end hcpp-nodeapp$/d' /etc/bash.bashrc
 
 ############################################
 # Uninstall templates

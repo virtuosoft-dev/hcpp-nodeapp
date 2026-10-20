@@ -1,103 +1,77 @@
 #!/bin/bash
+set -eo pipefail
 export DEBIAN_FRONTEND=noninteractive
-if [[ -d "/opt/nvm" && -f "/usr/local/hestia/data/templates/web/nginx/NodeApp.stpl" ]]
-then
-    echo "NodeApp appears to already be installed"
-    exit
+
+# Pin NVM; bump deliberately. NodeJS 20 is EOL but still required by hcpp-ghost and hcpp-nodebb.
+# Never remove the system NodeJS (/usr/bin/node); HestiaCP's web terminal depends on it.
+NVM_VERSION="v0.40.8"
+NODE_MAJORS=(20 22 24)
+DEFAULT_MAJOR=24
+
+############################################
+# Shell environment (also migrates prior installs)
+############################################
+
+# Login shells
+cat > /etc/profile.d/nvm.sh <<'EOT'
+# Installed by hcpp-nodeapp; shared NVM in /opt/nvm
+if ! type nvm > /dev/null 2>&1; then
+    export NVM_DIR="/opt/nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    [ -n "$BASH_VERSION" ] && [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
 fi
+EOT
+chmod 644 /etc/profile.d/nvm.sh
 
-# ############################################ 
-# # Install NVM, NodeJS, PM2, and grunt
-# ############################################
-
-# # Remove existing NodeJS installation
-# apt remove --purge nodejs -y
-
-# Get prerequisites, latest NVM version, and build tools if we need to compile from source
-apt-get install -y curl build-essential gnupg2 rsync
-LATEST_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep '"tag_name":' | cut -d '"' -f 4)
-curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/${LATEST_VERSION}/install.sh | bash
-source ~/.bashrc
-
-# Install node version manager, globally
-mv ~/.nvm /opt/nvm
-chmod -R 755 /opt/nvm
-export NVM_DIR="/opt/nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-export PATH="/opt/nvm:$PATH"
-
-# Initial install of NodeJS (version 20 is an LTS version)
-nvm install v22
-npm install -g npm@latest
-
-# Install last three NodeJS LTS versions
-nvm install v16
-nvm install v18
-nvm install v20
-nvm alias default v22
-
-# Install grunt, pm2 globally for all versions
-nvm use v16
-npm install -g grunt-cli
-npm install -g pm2
-nvm use v18
-npm install -g grunt-cli
-npm install -g pm2
-nvm use v20
-npm install -g grunt-cli
-npm install -g pm2
-nvm use v22
-npm install -g grunt-cli
-npm install -g pm2
-
+# Interactive non-login bash shells; replace any prior hcpp-nodeapp block
+sed -i '/^# begin hcpp-nodeapp$/,/^# end hcpp-nodeapp$/d' /etc/bash.bashrc
+cat <<'EOT' >> /etc/bash.bashrc
+# begin hcpp-nodeapp
+[ -s /etc/profile.d/nvm.sh ] && . /etc/profile.d/nvm.sh
+# end hcpp-nodeapp
+EOT
 
 ############################################
 # Install templates
 ############################################
 
+apt-get install -y curl ca-certificates rsync
 rsync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/
 
-############################################
-# Update global bash.bashrc
-############################################
-
-if ! grep -Fxq "# begin hcpp-nodeapp" "/etc/bash.bashrc";then
-
-cat <<EOT >> /etc/bash.bashrc
-# begin hcpp-nodeapp
-export NVM_DIR="/opt/nvm"
-[ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-export PATH="/opt/nvm:\$PATH"
-# end hcpp-nodeapp
-EOT
-
+if [[ -s "/opt/nvm/nvm.sh" ]]; then
+    echo "NodeApp appears to already be installed"
+    exit
 fi
 
-# Comment out /root/.bashrc
-BASHRC_FILE="/root/.bashrc"
+############################################
+# Install NVM, NodeJS, and PM2
+############################################
 
-# Lines to search for
-NVM_LINES=(
-    'export NVM_DIR="$HOME/.nvm"'
-    '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-    '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
-)
+# Install NVM directly into /opt/nvm without touching any profile files
+mkdir -p /opt/nvm
+curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | NVM_DIR=/opt/nvm PROFILE=/dev/null bash
+export NVM_DIR="/opt/nvm"
+. "$NVM_DIR/nvm.sh" || true
 
-# Iterate over each line and comment it out if not already commented
-for line in "${NVM_LINES[@]}"; do
-    # Escape special characters in the line for use in grep and sed
-    escaped_line=$(printf '%s\n' "$line" | sed 's/[.[\*^$(){}?+|]/\\&/g')
-
-    # Check if the line exists and is not already commented
-    if grep -q "$escaped_line" "$BASHRC_FILE" && ! grep -q "# $escaped_line" "$BASHRC_FILE"; then
-        sed -i "s|$escaped_line|# $line|" "$BASHRC_FILE"
-        echo "Commented out: $line"
-    else
-        echo "Line not found or already commented: $line"
-    fi
+# Install NodeJS versions
+for major in "${NODE_MAJORS[@]}"; do
+    nvm install "$major"
 done
+nvm alias default "$DEFAULT_MAJOR"
 
-# Notify installation has finished
-/usr/local/hestia/bin/v-add-user-notification admin NodeApp "<span style=\"font-size:large;color:green;\">&#11042;</span> NodeApp plugin has finished installing."
+# Install PM2 once, under the default version; PM2 state is per user (~/.pm2)
+nvm use default
+npm install -g npm@latest pm2
+
+# Read-only for users
+chmod -R a+rX,go-w /opt/nvm
+
+# Notify the admin (username is customizable); prefer ROOT_USER, else the first user with the admin role
+ADMIN_USER=$(source /usr/local/hestia/conf/hestia.conf 2>/dev/null; echo "$ROOT_USER")
+if [[ -z "$ADMIN_USER" ]]; then
+    ADMIN_CONF=$(grep -l "^ROLE='admin'" /usr/local/hestia/data/users/*/user.conf 2>/dev/null | head -n 1 || true)
+    [[ -n "$ADMIN_CONF" ]] && ADMIN_USER=$(basename "$(dirname "$ADMIN_CONF")")
+fi
+if [[ -n "$ADMIN_USER" ]]; then
+    /usr/local/hestia/bin/v-add-user-notification "$ADMIN_USER" NodeApp "<span style=\"font-size:large;color:green;\">&#11042;</span> NodeApp plugin has finished installing."
+fi
