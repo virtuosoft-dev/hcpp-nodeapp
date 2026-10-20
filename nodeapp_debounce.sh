@@ -1,5 +1,5 @@
 #!/bin/bash
-LOCKFILE="/tmp/nodeapp_debounce.lock"
+LOCKFILE="/usr/local/hestia/data/hcpp/nodeapp_debounce.lock"
 TIMEOUT=5
 
 # Check if lockfile exists

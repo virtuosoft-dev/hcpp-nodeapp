@@ -8,10 +8,9 @@ Version 2.X now includes a (PM2 based) process list UI within HestiaCP that list
 
 Long term support NodeJS versions that are automatically installed with this plugin include:
 
-* Gallium v16
-* Hydrogen v18
-* Iron v20
+* Iron v20 (end-of-life; kept for plugins that require it)
 * Jod v22
+* Krypton v24 (default)
 
 NodeApp also includes an updated administrator's [Server Settings -> Updates]() screen (see figure 2 below) that shows the current state of NVM NodeJS  versions. All versions are automatically updated and maintained along with any global modules when HestiaCP's native [Enable Automatic Updates]() option is turned on.
 
