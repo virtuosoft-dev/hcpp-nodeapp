@@ -18,7 +18,7 @@ NodeApp also includes an updated administrator's [Server Settings -> Updates]() 
 
 &nbsp;
 ## Installation
-HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Clone the latest release version (i.e. replace **v2.0.3** below with the latest release version) to the nodeapp folder:
+HCPP-NodeApp requires an Ubuntu or Debian based installation of [Hestia Control Panel](https://hestiacp.com) in addition to an installation of [HestiaCP-Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) to function; please ensure that you have first installed pluginable on your Hestia Control Panel before proceeding. Clone the latest release version (i.e. replace **v2.0.4** below with the latest release version) to the nodeapp folder:
 
 ```
 cd /usr/local/hestia/plugins
