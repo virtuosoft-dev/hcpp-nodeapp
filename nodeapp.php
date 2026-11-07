@@ -133,6 +133,7 @@ if ( ! class_exists( 'NodeApp') ) {
 
             // Find any running apps using the major version across all users
             $pm2_list = [];
+            $pm2_configs = []; // config.js paths; PM2 ids may change if the daemon is refreshed
             foreach( $users as $user) {
                 $pm2 = $this->get_pm2_list( $user );
                 if ( is_null( $pm2 ) ) continue;
@@ -143,15 +144,11 @@ if ( ! class_exists( 'NodeApp') ) {
                         $version = $hcpp->getLeftMost( $version, '/' );
                         $major = $hcpp->getLeftMost( $version, '.' );
                         if ( in_array( $major, $majors ) ) {
-                            if ( count( $apps ) == 0 ) {
+                            // Filter by app name i.e. 'ghost' in 'ghost | test1.dev.pw'
+                            $name = $hcpp->getLeftMost( $p['name'], ' | ' );
+                            if ( count( $apps ) == 0 || in_array( $name, $apps ) ) {
                                 $pm2_list[$user][] = $p['pm_id'];
-                            }else{
-
-                                // Filter by app name i.e. 'ghost' in 'ghost | test1.dev.pw'
-                                $name = $hcpp->getLeftMost( $p['name'], ' | ' );
-                                if ( in_array( $name, $apps ) ) {
-                                    $pm2_list[$user][] = $p['pm_id'];
-                                }
+                                $pm2_configs[$user][] = $p['pm2_env']['cwd'] . '/' . $name . '.config.js';
                             }
                         }
                     }
@@ -170,10 +167,10 @@ if ( ! class_exists( 'NodeApp') ) {
                 $cb_maintenance( $pm2_list );
             }
 
-            // Restart the stopped apps by id for each user
-            foreach( $pm2_list as $user => $app_ids ) {
-                if ( count( $app_ids ) > 0 ) {
-                    $this->restart_pm2_ids( $app_ids, $user );
+            // Restart the stopped apps by config file for each user
+            foreach( $pm2_configs as $user => $configs ) {
+                if ( count( $configs ) > 0 ) {
+                    $this->restart_pm2_configs( $configs, $user );
                 }
             }
         }
@@ -502,6 +499,22 @@ if ( ! class_exists( 'NodeApp') ) {
                     $hcpp->runuser( $username, $cmd );
                     break;
 
+                case 'nodeapp_restart_pm2_configs':
+                    $configs = json_decode( $args[2] ?? '[]', true );
+                    if ( ! is_array( $configs ) ) $configs = [];
+                    $cmd = '';
+                    foreach( $configs as $config ) {
+
+                        // Only allow existing *.config.js files within the user's web folder
+                        $real = realpath( $config );
+                        if ( $real === false || strpos( $real, "/home/$username/web/" ) !== 0 ) continue;
+                        if ( substr( $real, -10 ) != '.config.js' ) continue;
+                        $cmd .= 'pm2 restart ' . escapeshellarg( $real ) . '; ';
+                    }
+                    $cmd .= 'pm2 save --force';
+                    $hcpp->runuser( $username, $cmd );
+                    break;
+
                 case 'nodeapp_pm2_log':
                     $pm2_id = $args[2];
                     $pm2_id = filter_var( $pm2_id, FILTER_SANITIZE_NUMBER_INT );
@@ -708,6 +721,21 @@ if ( ! class_exists( 'NodeApp') ) {
         }
 
         /**
+         * Restart (or start) PM2 apps for the given user by their *.config.js paths;
+         * unlike ids, config paths remain valid across a PM2 daemon refresh.
+         *
+         * @param array $configs The list of *.config.js file paths
+         * @param string $user The username owning the apps
+         */
+        public function restart_pm2_configs( $configs, $user ) {
+            global $hcpp;
+            $hcpp->log( 'nodeapp restart_pm2_configs for user: ' . $user );
+            $hcpp->log( $configs );
+            $configs = escapeshellarg( json_encode( array_values( $configs ) ) );
+            $hcpp->run( "v-invoke-plugin nodeapp_restart_pm2_configs " . escapeshellarg( $user ) . ' ' . $configs );
+        }
+
+        /**
          * Scan the nodeapp folder for .config.js files and start the app for each
          */
         public function startup_apps( $nodeapp_folder, $inc_root = true ) {
@@ -823,22 +851,75 @@ if ( ! class_exists( 'NodeApp') ) {
                 }
             }
 
-            // Perform maintenance only if updates are available
+            // Perform maintenance only if updates are available; still heal any
+            // PM2 daemons left running from an already-removed NodeJS install
             if ( count( $updates ) == 0 ) {
+                $this->refresh_pm2_daemons();
                 return;
             }
 
             // Perform the maintenance tasks
             $this->do_maintenance( function( $stopped ) use ( $hcpp, $updates ) {
-                // Update NodeJS, npm, and re-install global packages
+
+                // Install the new NodeJS, npm, and re-install global packages (incl. PM2)
+                $retiring = [];
                 foreach( $updates as $v ) {
                     $cmd = 'nvm install ' . $v['latest'] . ' && nvm use ' . $v['latest'] . ' && npm install -g npm';
                     $cmd .= ' && nvm reinstall-packages ' . $v['installed'];
-                    $cmd .= ' && nvm uninstall ' . $v['installed'];
                     $cmd = $hcpp->do_action( 'nodeapp_update_nodejs', $cmd );
                     $hcpp->runuser( '', $cmd );
+
+                    // Only retire the old version if the new one actually installed
+                    if ( is_dir( '/opt/nvm/versions/node/v' . $v['latest'] ) ) {
+                        $retiring[] = $v['installed'];
+                    }
+                }
+
+                // Move each user's PM2 daemon off any version we're about to remove;
+                // otherwise it forks apps via ProcessContainerFork.js from a deleted path
+                $this->refresh_pm2_daemons( $retiring );
+
+                // Now it's safe to remove the old versions
+                foreach( $retiring as $installed ) {
+                    $hcpp->runuser( '', 'nvm uninstall ' . $installed );
                 }
             }, $majors );
+        }
+
+        /**
+         * Restart (pm2 update) each user's running PM2 daemon when it was launched from
+         * a NodeJS install that has been removed, or from one of the given versions that
+         * is about to be removed. pm2 update saves the process list, kills the daemon,
+         * starts a new one from the current default PM2, and resurrects the list.
+         *
+         * @param array $retiring Installed versions (e.g. '24.22.1') about to be uninstalled.
+         */
+        public function refresh_pm2_daemons( $retiring = [] ) {
+            global $hcpp;
+            $users = $hcpp->run( 'v-list-users json' );
+            if ( ! is_array( $users ) ) return;
+            foreach( $users as $user => $details ) {
+                if ( ! isset( $details['SHELL'] ) || $details['SHELL'] != 'bash' ) continue;
+
+                // Only touch daemons that are actually running; never spawn new ones
+                $pid_file = "/home/$user/.pm2/pm2.pid";
+                if ( ! is_file( $pid_file ) ) continue;
+                $pid = intval( trim( file_get_contents( $pid_file ) ) );
+                if ( $pid < 1 ) continue;
+                $exe = @readlink( "/proc/$pid/exe" );
+                if ( $exe === false ) continue; // daemon not running
+
+                // Ignore a stale pid file whose pid now belongs to an unrelated process
+                if ( strpos( $exe, '/opt/nvm/versions/node/' ) !== 0 ) continue;
+
+                $stale = ( strpos( $exe, '(deleted)' ) !== false || ! file_exists( $exe ) );
+                foreach( $retiring as $installed ) {
+                    if ( strpos( $exe, "/opt/nvm/versions/node/v$installed/" ) === 0 ) $stale = true;
+                }
+                if ( ! $stale ) continue;
+                $hcpp->log( "nodeapp refresh_pm2_daemons: $user daemon running from $exe; running pm2 update" );
+                $hcpp->log( $hcpp->runuser( $user, 'pm2 update 2>&1' ) );
+            }
         }
 
         /**
