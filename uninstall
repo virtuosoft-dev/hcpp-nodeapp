@@ -1,5 +1,14 @@
 #!/bin/bash
 
+############################################
+# Remove shared Playwright browsers (Chromium)
+############################################
+# The Debian shared libraries installed by "playwright install-deps chromium" are
+# generic packages used by other software and are deliberately left in place.
+rm -rf /opt/ms-playwright
+rm -f /etc/profile.d/playwright.sh
+sed -i '/^# begin hcpp-nodeapp-playwright$/,/^# end hcpp-nodeapp-playwright$/d' /etc/bash.bashrc
+
 # Remove NVM, NodeJS, and PM2 (the system NodeJS in /usr/bin is left untouched)
 rm -rf /opt/nvm
 

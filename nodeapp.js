@@ -24,6 +24,11 @@ module.exports = function(path) {
     details.watch_delay = 5000;
     details.restart_delay = 5000;
 
+    // Point apps at the shared Playwright browsers installed by the plugin
+    details.env = {
+        PLAYWRIGHT_BROWSERS_PATH: '/opt/ms-playwright'
+    };
+
     // Support optional .nvmrc file or default to current version
     let nvmrc = details.cwd + '/.nvmrc';
     let ver = 'current';
