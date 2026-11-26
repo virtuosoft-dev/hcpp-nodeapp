@@ -18,7 +18,7 @@ PM2 features an auto-restart mechanism that you can activate by simply changing 
 touch .restart/restart
 ```
 
-You can change the version of the NodeJS runtime engine by supplying a complete or partial version number in the file `.nvmrc` (i.e. "v22" or "current" for the latest NodeJS version). Supported NodeJS versions are:
+You can change the version of the NodeJS runtime engine by supplying a complete or partial version number in the file `.nvmrc` (i.e. "v24" or "current" for the latest NodeJS version). Supported NodeJS versions are:
 
 ```
 v20
