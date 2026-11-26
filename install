@@ -8,6 +8,11 @@ NVM_VERSION="v0.40.8"
 NODE_MAJORS=(20 22 24)
 DEFAULT_MAJOR=24
 
+# Pin Playwright; bump deliberately. The Chromium revision downloaded below belongs to
+# this release, so apps should use a matching Playwright version to find it.
+PLAYWRIGHT_VERSION="1.65.1"
+PLAYWRIGHT_BROWSERS_PATH_DIR="/opt/ms-playwright"
+
 ############################################
 # Shell environment (also migrates prior installs)
 ############################################
@@ -23,12 +28,23 @@ fi
 EOT
 chmod 644 /etc/profile.d/nvm.sh
 
+# Shared Playwright browser binaries (used by hosted NodeApps)
+cat > /etc/profile.d/playwright.sh <<'EOT'
+# Installed by hcpp-nodeapp; system-wide Playwright browser binaries
+export PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
+EOT
+chmod 644 /etc/profile.d/playwright.sh
+
 # Interactive non-login bash shells; replace any prior hcpp-nodeapp block
 sed -i '/^# begin hcpp-nodeapp$/,/^# end hcpp-nodeapp$/d' /etc/bash.bashrc
+sed -i '/^# begin hcpp-nodeapp-playwright$/,/^# end hcpp-nodeapp-playwright$/d' /etc/bash.bashrc
 cat <<'EOT' >> /etc/bash.bashrc
 # begin hcpp-nodeapp
 [ -s /etc/profile.d/nvm.sh ] && . /etc/profile.d/nvm.sh
 # end hcpp-nodeapp
+# begin hcpp-nodeapp-playwright
+[ -s /etc/profile.d/playwright.sh ] && . /etc/profile.d/playwright.sh
+# end hcpp-nodeapp-playwright
 EOT
 
 ############################################
@@ -38,8 +54,53 @@ EOT
 apt-get install -y curl ca-certificates rsync
 rsync -r ./nginx/ /usr/local/hestia/data/templates/web/nginx/
 
+############################################
+# Chromium for Playwright (shared system-wide browsers path)
+############################################
+
+# Install the OS libraries Chromium needs and download Chromium into one shared path.
+# Safe to re-run and to run over an existing installation: apt and the Playwright
+# installer both skip what is already present, so upgrades refresh without redownloading.
+install_playwright_chromium() {
+    local npx_bin
+    # Prefer the NVM-managed NodeJS (the distro's system package may be too old for Playwright)
+    if [[ -s /opt/nvm/nvm.sh ]]; then
+        export NVM_DIR="/opt/nvm"
+        . "$NVM_DIR/nvm.sh" > /dev/null 2>&1 || true
+        nvm use default > /dev/null 2>&1 || true
+    fi
+    npx_bin="$(command -v npx || true)"
+    if [[ -z "$npx_bin" ]]; then
+        echo "NodeJS (npx) is not available; skipping Chromium installation" >&2
+        return 0
+    fi
+
+    # Shared browsers directory; kept as-is on upgrade
+    mkdir -p "$PLAYWRIGHT_BROWSERS_PATH_DIR"
+    chmod 777 "$PLAYWRIGHT_BROWSERS_PATH_DIR"
+
+    # 1. Debian shared libraries required by Chromium (idempotent; apt skips existing)
+    #    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD stops npx from also fetching browsers into
+    #    its own throwaway copy; the real download is step 2.
+    if ! PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+            "$npx_bin" --yes "playwright@${PLAYWRIGHT_VERSION}" install-deps chromium; then
+        echo "Warning: not all Chromium system dependencies could be installed" >&2
+    fi
+
+    # 2. Chromium into the shared system path (no-op if already installed)
+    if ! PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH_DIR" \
+            "$npx_bin" --yes "playwright@${PLAYWRIGHT_VERSION}" install chromium; then
+        echo "Warning: Chromium could not be installed into ${PLAYWRIGHT_BROWSERS_PATH_DIR}" >&2
+    fi
+
+    # Hosted accounts need read/execute on the shared browsers
+    chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH_DIR"
+}
+
 if [[ -s "/opt/nvm/nvm.sh" ]]; then
     echo "NodeApp appears to already be installed"
+    # Upgrades re-run this script; keep the shared Chromium in place and current
+    install_playwright_chromium
     exit
 fi
 
@@ -65,6 +126,12 @@ npm install -g npm@latest pm2
 
 # Read-only for users
 chmod -R a+rX,go-w /opt/nvm
+
+############################################
+# Install Chromium for Playwright
+############################################
+
+install_playwright_chromium
 
 # Notify the admin (username is customizable); prefer ROOT_USER, else the first user with the admin role
 ADMIN_USER=$(source /usr/local/hestia/conf/hestia.conf 2>/dev/null; echo "$ROOT_USER")
