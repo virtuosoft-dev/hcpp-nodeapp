@@ -1,0 +1,6 @@
+#!/bin/bash
+# Called by HestiaCP-Pluginable after the plugin folder is checked out to a new release tag.
+# The installer steps are idempotent: an existing /opt/nvm is left alone and the shared
+# Playwright Chromium is refreshed in place, so simply re-running ./install upgrades us.
+cd "$(dirname "$0")" || exit 1
+exec ./install
